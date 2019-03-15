@@ -121,7 +121,7 @@ class Anchor_ms(object):
         return over_square/all_square
 
 class TrainDataLoader(object):
-    def __init__(self, img_dir_path, tmp_dir, out_feature = 17, max_inter = 80, check = False):
+    def __init__(self, img_dir_path, tmp_dir, out_feature = 17, max_inter = 80):
         assert osp.isdir(img_dir_path), 'input img_dir_path error'
         self.anchor_generator = Anchor_ms(out_feature, out_feature)
         self.img_dir_path = img_dir_path # this is a root dir contain subclass
@@ -129,10 +129,8 @@ class TrainDataLoader(object):
         self.sub_class_dir = [sub_class_dir for sub_class_dir in os.listdir(img_dir_path) if os.path.isdir(os.path.join(img_dir_path, sub_class_dir))]
         self.anchors = self.anchor_generator.gen_anchors() #centor
         self.ret = {}
-        self.check = check
         self.tmp_dir = self.init_dir(tmp_dir)
         self.ret['tmp_dir'] = tmp_dir
-        self.ret['check'] = check
         self.count = 0
 
     def init_dir(self, tmp_dir ):
@@ -204,27 +202,6 @@ class TrainDataLoader(object):
         self.ret['anchors'] = self.anchors
         self._average()
 
-        if self.check:
-            s = osp.join(self.tmp_dir, '0_check_bbox_groundtruth')
-            if not os.path.exists(s):
-                os.makedirs(s)
-
-            template = Image.open(self.ret['template_img_path'])
-            x, y, w, h = self.ret['template_target_xywh'].copy()
-            x1, y1, x3, y3 = int(x-w//2), int(y-h//2), int(x+w//2), int(y+h//2)
-            draw = ImageDraw.Draw(template)
-            draw.line([(x1, y1), (x3, y1), (x3, y3), (x1, y3), (x1, y1)], width=1, fill='red')
-            save_path = osp.join(s,'idx_{:04d}_class_{}_template_idx_{}.jpg'.format(self.count, sub_class_dir_basename, template_index))
-            template.save(save_path)
-
-            detection = Image.open(self.ret['detection_img_path'])
-            x, y, w, h = self.ret['detection_target_xywh'].copy()
-            x1, y1, x3, y3 = int(x-w//2), int(y-h//2), int(x+w//2), int(y+h//2)
-            draw = ImageDraw.Draw(detection)
-            draw.line([(x1, y1), (x3, y1), (x3, y3), (x1, y3), (x1, y1)], width=1, fill='red')
-            save_path = osp.join(s,'idx_{:04d}_class_{}_detection_idx_{}.jpg'.format(self.count, sub_class_dir_basename, detection_index))
-            detection.save(save_path)
-
     def _pad_crop_resize(self):
         template_img, detection_img = Image.open(self.ret['template_img_path']), Image.open(self.ret['detection_img_path'])
 
@@ -278,23 +255,7 @@ class TrainDataLoader(object):
         x, y, w, h = self.ret['detection_target_xywh']
         self.ret['target_tlcords_of_padding_image'] = np.array([int(x+left-w//2), int(y+top-h//2)], dtype = np.float32)
         self.ret['target_rbcords_of_padding_image'] = np.array([int(x+left+w//2), int(y+top+h//2)], dtype = np.float32)
-        if self.check:
-            s = osp.join(self.tmp_dir, '1_check_detection_target_in_padding')
-            if not os.path.exists(s):
-                os.makedirs(s)
 
-            im = self.ret['new_detection_img_padding']
-            draw = ImageDraw.Draw(im)
-            x1, y1 = self.ret['target_tlcords_of_padding_image']
-            x2, y2 = self.ret['target_rbcords_of_padding_image']
-            draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='red') # target in padding
-
-            x1, y1 = self.ret['detection_tlcords_of_padding_image']
-            x2, y2 = self.ret['detection_rbcords_of_padding_image']
-            draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='green') # detection in padding
-
-            save_path = osp.join(s, '{:04d}.jpg'.format(self.count))
-            im.save(save_path)
 
         ### use cords of padding to compute cords about detection
         ### modify cords because not all the object in the detection
@@ -308,16 +269,7 @@ class TrainDataLoader(object):
         x2 = np.clip(x3_of_d, 0, x12-x11).astype(np.float32)
         y2 = np.clip(y3_of_d, 0, y12-y11).astype(np.float32)
         self.ret['target_in_detection_x1y1x2y2']=np.array([x1, y1, x2, y2], dtype = np.float32)
-        if self.check:
-            s = osp.join(self.tmp_dir, '2_check_target_in_cropped_detection')
-            if not os.path.exists(s):
-                os.makedirs(s)
 
-            im = self.ret['detection_cropped'].copy()
-            draw = ImageDraw.Draw(im)
-            draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='red')
-            save_path = osp.join(s, '{:04d}.jpg'.format(self.count))
-            im.save(save_path)
 
         cords_in_cropped_detection = np.array((x1, y1, x2, y2), dtype = np.float32)
         cords_in_cropped_resized_detection = (cords_in_cropped_detection * self.ret['detection_cropped_resized_ratio']).astype(np.int32)
@@ -327,16 +279,7 @@ class TrainDataLoader(object):
         self.ret['target_in_resized_detection_xywh']     = np.array((cx, cy, w,  h) , dtype = np.int32)
         self.ret['area_target_in_resized_detection'] = w * h
 
-        if self.check:
-            s = osp.join(self.tmp_dir, '3_check_target_in_cropped_resized_detection')
-            if not os.path.exists(s):
-                os.makedirs(s)
 
-            im = self.ret['detection_cropped_resized'].copy()
-            draw = ImageDraw.Draw(im)
-            draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='red')
-            save_path = osp.join(s, '{:04d}.jpg'.format(self.count))
-            im.save(save_path)
 
     def _generate_pos_neg_diff(self):
         gt_box_in_detection = self.ret['target_in_resized_detection_xywh'].copy()
@@ -358,53 +301,7 @@ class TrainDataLoader(object):
         class_target[neg_index] = 0
 
         # draw pos and neg anchor box
-        if self.check:
-            s = osp.join(self.tmp_dir, '4_check_pos_neg_anchors')
-            if not os.path.exists(s):
-                os.makedirs(s)
 
-            im = self.ret['detection_cropped_resized'].copy()
-            draw = ImageDraw.Draw(im)
-            if pos_num == 16:
-                for i in range(pos_num):
-                    index = pos_index[i]
-                    cx ,cy, w, h = self.anchors[index]
-                    if w * h == 0:
-                        print('anchor area error')
-                        sys.exit(0)
-                    x1, y1, x2, y2 = int(cx-w/2), int(cy-h/2), int(cx+w/2), int(cy+h/2)
-                    draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='red')
-
-            for i in range(neg_num):
-                index = neg_index[i]
-                cx ,cy, w, h = self.anchors[index]
-                x1, y1, x2, y2 = int(cx-w/2), int(cy-h/2), int(cx+w/2), int(cy+h/2)
-                draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='green')
-            save_path = osp.join(s, '{:04d}.jpg'.format(self.count))
-            im.save(save_path)
-
-        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # when training, this part can be delete to speed up
-        """
-        if self.check:
-            s = osp.join(self.tmp_dir, '5_check_all_anchors')
-            if not os.path.exists(s):
-                os.makedirs(s)
-
-            for i in range(self.anchors.shape[0]):
-                x1, y1, x2, y2 = self.ret['target_in_resized_detection_x1y1x2y2']
-                im = self.ret['detection_cropped_resized'].copy()
-                draw = ImageDraw.Draw(im)
-                draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='red')
-
-                cx, cy, w, h = self.anchors[i]
-                x1, y1, x2, y2 = cx-w//2,cy-h//2,cx+w//2,cy+h//2
-                draw = ImageDraw.Draw(im)
-                draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='green')
-                save_path = osp.join(s, 'img_{:04d}_anchor_{:05d}.jpg'.format(self.count, i))
-                im.save(save_path)
-        """
-        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         class_logits = class_target.reshape(-1, 1)
         pos_neg_diff = np.hstack((class_logits, diff))

@@ -27,7 +27,7 @@ import json
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k/train', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/Users/arbi/Desktop/val', metavar='DIR',help='path to dataset')
 
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 
@@ -37,7 +37,6 @@ parser.add_argument('--max_epoches', default=10000, type=int, metavar='N', help=
 
 parser.add_argument('--max_batches', default=0, type=int, metavar='N', help='number of batch in one epoch')
 
-parser.add_argument('--debug', default=False, type=bool,  help='whether to debug')
 
 def main():
 
@@ -52,7 +51,7 @@ def main():
         params = json.load(data_file)
 
     """ train dataloader """
-    data_loader = TrainDataLoader(args.train_path, check = args.debug, tmp_dir = exp_name_dir)
+    data_loader = TrainDataLoader(args.train_path, tmp_dir = exp_name_dir)
 
     """ compute max_batches """
     for root, dirs, files in os.walk(args.train_path):
@@ -110,135 +109,9 @@ def main():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            steps += 1
 
-
-            cout = cout.cpu().detach().numpy()
-            score = 1/(1 + np.exp(cout[:,0]-cout[:,1]))
-
-            # ++++++++++++ post process below just for debug ++++++++++++++++++++++++
-            if ret['pos_anchors'] is not None:
-                penalty_k = 0.055
-                tx, ty, tw, th = ret['template_target_xywh'].copy()
-                tw *= ret['template_cropprd_resized_ratio']
-                th *= ret['template_cropprd_resized_ratio']
-
-                anchors = ret['anchors'].copy()
-                w = anchors[:,2] * np.exp(reg_pred[:, 2].cpu().detach().numpy())
-                h = anchors[:,3] * np.exp(reg_pred[:, 3].cpu().detach().numpy())
-
-                eps = 1e-2
-                change_w = np.maximum(w/(tw+eps), tw/(w+eps))
-                change_h = np.maximum(h/(th+eps), th/(h+eps))
-                penalty = np.exp(-(change_w + change_h - 1) * penalty_k)
-                pscore = score * penalty
-            else:
-                pscore = score
-
-            score_size = 17
-            window_influence = 0.42
-            window = (np.outer(np.hanning(score_size), np.hanning(score_size)).reshape(17,17,1) + np.zeros((1, 1, 5))).reshape(-1)
-            pscore = pscore * (1 - window_influence) + window * window_influence
-            score_old = score
-            score = pscore #from 0.2 - 0.7
-
-            nms = False
-            nms_threshold = 0.6
-            start = time.time()
-            anchors = ret['anchors'].copy()
-            x = anchors[:,0] + anchors[:, 2] * reg_pred[:, 0].cpu().detach().numpy()
-            y = anchors[:,1] + anchors[:, 3] * reg_pred[:, 1].cpu().detach().numpy()
-            w = anchors[:,2] * np.exp(reg_pred[:, 2].cpu().detach().numpy())
-            h = anchors[:,3] * np.exp(reg_pred[:, 3].cpu().detach().numpy())
-            x1 = np.clip(x-w//2, 0, 256)
-            x2 = np.clip(x+w//2, 0, 256)
-            x3 = np.clip(x+w//2, 0, 256)
-            x4 = np.clip(x-w//2, 0, 256)
-            y1 = np.clip(y-h//2, 0, 256)
-            y2 = np.clip(y-h//2, 0, 256)
-            y3 = np.clip(y+h//2, 0, 256)
-            y4 = np.clip(y+h//2, 0, 256)
-            slist = map(reshape, [x1, y1, x2, y2, x3, y3, x4, y4, score])
-            s = np.hstack(slist)
-            maxscore = max(s[:, 8])
-            if nms and maxscore > nms_threshold:
-                proposals = standard_nms(s, nms_threshold)
-                proposals = proposals if proposals.shape[0] != 0 else s
-                print('nms spend {:.2f}ms'.format(1000*(time.time()-start)))
-            else:
-                proposals = s
-
-            tmp_dir = '{}/tmp/visualization/train'.format(exp_name_dir)
-            if not os.path.exists(tmp_dir):
-                os.makedirs(tmp_dir)
-            detection = ret['detection_cropped_resized'].copy()
-            draw = ImageDraw.Draw(detection)
-            pos_anchors = ret['pos_anchors'].copy() if ret['pos_anchors'] is not None else None
-
-            if pos_anchors is not None:
-                # draw pos anchors
-                x = pos_anchors[:, 0]
-                y = pos_anchors[:, 1]
-                w = pos_anchors[:, 2]
-                h = pos_anchors[:, 3]
-                x1s, y1s, x2s, y2s = x - w//2, y - h//2, x + w//2, y + h//2
-                for i in range(16):
-                    x1, y1, x2, y2 = x1s[i], y1s[i], x2s[i], y2s[i]
-                    draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='white') # pos anchor
-
-                # pos anchor transform to red box after prediction
-                x = pos_anchors[:,0] + pos_anchors[:, 2] * reg_pred[pos_index, 0].cpu().detach().numpy()
-                y = pos_anchors[:,1] + pos_anchors[:, 3] * reg_pred[pos_index, 1].cpu().detach().numpy()
-                w = pos_anchors[:,2] * np.exp(reg_pred[pos_index, 2].cpu().detach().numpy())
-                h = pos_anchors[:,3] * np.exp(reg_pred[pos_index, 3].cpu().detach().numpy())
-                x1s, y1s, x2s, y2s = x - w//2, y - h//2, x + w//2, y + h//2
-                for i in range(16):
-                    x1, y1, x2, y2 = x1s[i], y1s[i], x2s[i], y2s[i]
-                    draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='red')  # predict(white -> red)
-
-                # pos anchor should be transformed to green gt box, if red and green is same, it is overfitting
-                x = pos_anchors[:,0] + pos_anchors[:, 2] * reg_target[pos_index, 0].cpu().detach().numpy()
-                y = pos_anchors[:,1] + pos_anchors[:, 3] * reg_target[pos_index, 1].cpu().detach().numpy()
-                w = pos_anchors[:,2] * np.exp(reg_target[pos_index, 2].cpu().detach().numpy())
-                h = pos_anchors[:,3] * np.exp(reg_target[pos_index, 3].cpu().detach().numpy())
-                x1s, y1s, x2s, y2s = x - w//2, y-h//2, x + w//2, y + h//2
-                for i in range(16):
-                    x1, y1, x2, y2 = x1s[i], y1s[i], x2s[i], y2s[i]
-                    draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='green') # gt  (white -> green)
-                x1, y1, x3, y3 = x1s[0], y1s[0], x2s[0], y2s[0]
-            else:
-                x1, y1, x3, y3 = 0, 0, 0, 0
-            # top1 proposal after nms (white)
-            if nms:
-                index = np.argsort(proposals[:, 8])[::-1][0]
-                x1, y1, x2, y2, x3, y3, x4, y4, _ = proposals[index]
-                draw.line([(x1, y1), (x2, y2), (x3, y3), (x4, y4), (x1, y1)], width=3, fill='yellow')
-            if args.debug:
-                save_path = osp.join(tmp_dir, 'epoch_{:010d}_{:010d}_anchor_pred.jpg'.format(epoch, example))
-                detection.save(save_path)
-
-            ratio = ret['detection_cropped_resized_ratio']
-            detection_cropped = ret['detection_cropped'].copy()
-            detection_cropped_resized = ret['detection_cropped_resized'].copy()
-            original = Image.open(ret['detection_img_path'])
-            x_, y_ = ret['detection_tlcords_of_original_image']
-            draw = ImageDraw.Draw(original)
-            w, h = original.size
-            """ un resized """
-            x1, y1, x3, y3 = x1/ratio, y1/ratio, y3/ratio, y3/ratio
-
-            """ un cropped """
-            x1 = np.clip(x_ + x1, 0, w-1).astype(np.int32) # uncropped #target_of_original_img
-            y1 = np.clip(y_ + y1, 0, h-1).astype(np.int32)
-            x3 = np.clip(x_ + x3, 0, w-1).astype(np.int32)
-            y3 = np.clip(y_ + y3, 0, h-1).astype(np.int32)
-
-            draw.line([(x1, y1), (x3, y1), (x3, y3), (x1, y3), (x1, y1)], width=3, fill='yellow')
-            if args.debug:
-                save_path = osp.join(tmp_dir, 'epoch_{:010d}_{:010d}_restore.jpg'.format(epoch, example))
-                original.save(save_path)
             if example % 100 == 0:
-                print("Epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tsteps:{:010d}\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format(epoch, example, args.max_batches, 100*(example+1)/args.max_batches, steps, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
+                print("Epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format(epoch, example, args.max_batches, 100*(example+1)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
 
 
         """save model"""
