@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import torch
 import time
 import numpy as np
+from data_loader import TrainDataLoader
 
 from got10k.trackers import Tracker
 
@@ -88,17 +89,17 @@ class TrackerSiamRPN(Tracker):
             name='SiamRPN', is_deterministic=True)
 
         # setup GPU device if available
-        #self.cuda = torch.cuda.is_available()
-        #self.device = torch.device('cuda:0' if self.cuda else 'cpu')
+        # self.cuda = torch.cuda.is_available()
+        # self.device = torch.device('cuda:0' if self.cuda else 'cpu')
 
 
         '''setup model'''
         self.net = SiameseRPN()
-
+        #self.net = self.net.cuda()
         if net_path is not None:
             self.net.load_state_dict(torch.load(
                 net_path, map_location=lambda storage, loc: storage))
-        #self.net = self.net.to(self.device)
+        # self.net = self.net.to(self.device)
 
         '''setup optimizer'''
 
@@ -111,16 +112,37 @@ class TrackerSiamRPN(Tracker):
             weight_decay = 5e-5)
 
     def init(self, image, box):
-        image = np.asarray(image)
-        #print('image_init', image.shape)
-        #print('box', box)
-        self.box = box
+
+        """ dataloader """
+        self.data_loader = TrainDataLoader(image, box)
 
     def update(self, image):
-        image = np.asarray(image)
 
-        #print('image_update', image.shape)
-        box = self.box
+        ret = self.data_loader.__get__(image)
+        template = ret['template_tensor']#.cuda()
+        detection= ret['detection_tensor']#.cuda()
+
+        cout, rout = self.net(template, detection) #[1, 10, 17, 17], [1, 20, 17, 17]
+
+        cout = cout.reshape(-1, 2)
+        rout = rout.reshape(-1, 4)
+        cout = cout.cpu().detach().numpy()
+        score = 1/(1 + np.exp(cout[:,1]-cout[:,0]))
+        diff   = rout.cpu().detach().numpy() #1445
+
+        num_proposals = 1
+        score_64_index = np.argsort(score)[::-1][:num_proposals]
+
+        score64 = score[score_64_index]
+        diffs64 = diff[score_64_index, :]
+        anchors64 = ret['anchors'][score_64_index]
+        proposals_x = (anchors64[:, 0] + anchors64[:, 2] * diffs64[:, 0]).reshape(-1, 1)
+        proposals_y = (anchors64[:, 1] + anchors64[:, 3] * diffs64[:, 1]).reshape(-1, 1)
+        proposals_w = (anchors64[:, 2] * np.exp(diffs64[:, 2])).reshape(-1, 1)
+        proposals_h = (anchors64[:, 3] * np.exp(diffs64[:, 3])).reshape(-1, 1)
+        proposals = np.hstack((proposals_x, proposals_y, proposals_w, proposals_h))
+
+        box = proposals
 
         return box
 
