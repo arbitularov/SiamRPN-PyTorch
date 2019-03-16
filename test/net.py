@@ -83,14 +83,14 @@ class SiameseRPN(nn.Module):
 
 class TrackerSiamRPN(Tracker):
 
-    def __init__(self, params, net_path=None, **kargs):
+    def __init__(self, net_path=None, **kargs):
         super(TrackerSiamRPN, self).__init__(
             name='SiamRPN', is_deterministic=True)
 
         # setup GPU device if available
         #self.cuda = torch.cuda.is_available()
         #self.device = torch.device('cuda:0' if self.cuda else 'cpu')
-        self.params = params
+
 
         '''setup model'''
         self.net = SiameseRPN()
@@ -106,9 +106,23 @@ class TrackerSiamRPN(Tracker):
 
         self.optimizer = torch.optim.SGD(
             self.net.parameters(),
-            lr=self.params["lr"],
-            momentum=self.params["momentum"],
-            weight_decay = self.params["weight_decay"])
+            lr=0.001,
+            momentum=0.9,
+            weight_decay = 5e-5)
+
+    def init(self, image, box):
+        image = np.asarray(image)
+        #print('image_init', image.shape)
+        #print('box', box)
+        self.box = box
+
+    def update(self, image):
+        image = np.asarray(image)
+
+        #print('image_update', image.shape)
+        box = self.box
+
+        return box
 
     def step(self, ret, epoch, backward=True, update_lr=False):
         if backward:
@@ -118,7 +132,7 @@ class TrackerSiamRPN(Tracker):
         else:
             self.net.eval()
 
-        cur_lr = adjust_learning_rate(self.params["lr"], self.optimizer, epoch, gamma=0.1)
+        cur_lr = adjust_learning_rate(0.001, self.optimizer, epoch, gamma=0.1)
 
         template = ret['template_tensor']#.cuda()
         detection= ret['detection_tensor']#.cuda()
@@ -132,7 +146,7 @@ class TrackerSiamRPN(Tracker):
             loss.backward()
             self.optimizer.step()
 
-        return closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr #loss.item()
+        return loss.item() #closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr
 
 
 class MultiBoxLoss(nn.Module):
