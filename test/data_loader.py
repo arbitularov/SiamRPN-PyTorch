@@ -18,7 +18,7 @@ class Anchor_ms(object):
         self.w      = feature_w
         self.h      = feature_h
         self.base   = 64                   # base size for anchor box
-        self.stride = 15                   # center point shift stride
+        self.stride = 1                   # center point shift stride
         self.scale  = [1/3, 1/2, 1, 2, 3]  # aspect ratio
         self.anchors= self.gen_anchors()   # xywh
         self.eps    = 0.01
@@ -118,8 +118,9 @@ class Anchor_ms(object):
 class TrainDataLoader(object):
     def __init__(self, image, box, out_feature = 17, max_inter = 80):
         self.image = image
+        image_size = np.asarray(image)
         self.box = box
-        self.anchor_generator = Anchor_ms(out_feature, out_feature)
+        self.anchor_generator = Anchor_ms(image_size.shape[0], image_size.shape[1])
         self.max_inter = max_inter
         self.anchors = self.anchor_generator.gen_anchors() #centor
         self.ret = {}

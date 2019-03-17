@@ -1,4 +1,5 @@
 test/data
 test/__pycache__
+test/results
 model_e1.pth
 weights-000.pth.tar

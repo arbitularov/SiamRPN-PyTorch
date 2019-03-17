@@ -115,6 +115,7 @@ class TrackerSiamRPN(Tracker):
 
         """ dataloader """
         self.data_loader = TrainDataLoader(image, box)
+        self.box = box
 
     def update(self, image):
 
@@ -143,6 +144,9 @@ class TrackerSiamRPN(Tracker):
         proposals = np.hstack((proposals_x, proposals_y, proposals_w, proposals_h))
 
         box = proposals
+
+        #print('self.box', self.box)
+        #print('box', box)
 
         return box
 
