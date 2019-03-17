@@ -18,7 +18,7 @@ class Anchor_ms(object):
         self.w      = feature_w
         self.h      = feature_h
         self.base   = 64                   # base size for anchor box
-        self.stride = 1                   # center point shift stride
+        self.stride = 15                   # center point shift stride
         self.scale  = [1/3, 1/2, 1, 2, 3]  # aspect ratio
         self.anchors= self.gen_anchors()   # xywh
         self.eps    = 0.01
@@ -199,35 +199,6 @@ class TrainDataLoader(object):
         self.ret['template_cropprd_resized_ratio'] = round(127/template_square_size, 2)
         self.ret['detection_cropped_resized_ratio'] = round(256/detection_square_size, 2)
 
-
-
-    def _generate_pos_neg_diff(self):
-        gt_box_in_detection = self.ret['target_in_resized_detection_xywh'].copy()
-        pos, neg = self.anchor_generator.pos_neg_anchor(gt_box_in_detection)
-        diff     = self.anchor_generator.diff_anchor_gt(gt_box_in_detection)
-        pos, neg, diff = pos.reshape((-1, 1)), neg.reshape((-1,1)), diff.reshape((-1, 4))
-        class_target = np.array([-100.] * self.anchors.shape[0], np.int32)
-
-        # pos
-        pos_index = np.where(pos == 1)[0]
-        pos_num = len(pos_index)
-        self.ret['pos_anchors'] = np.array(self.ret['anchors'][pos_index, :], dtype=np.int32) if not pos_num == 0 else None
-        if pos_num > 0:
-            class_target[pos_index] = 1
-
-        # neg
-        neg_index = np.where(neg == 1)[0]
-        neg_num = len(neg_index)
-        class_target[neg_index] = 0
-
-        # draw pos and neg anchor box
-
-
-        class_logits = class_target.reshape(-1, 1)
-        pos_neg_diff = np.hstack((class_logits, diff))
-        self.ret['pos_neg_diff'] = pos_neg_diff
-        return pos_neg_diff
-
     def _tranform(self):
         """PIL to Tensor"""
         template_pil = self.ret['template_cropped_resized'].copy()
@@ -241,11 +212,9 @@ class TrainDataLoader(object):
         self.ret['detection_tensor']= detection_tensor.unsqueeze(0)
         #self.ret['pos_neg_diff_tensor'] = torch.Tensor(pos_neg_diff)
 
-
     def __get__(self, detection):
         self._pick_img_pairs(detection)
         self._pad_crop_resize(detection)
-        #self._generate_pos_neg_diff()
         self._tranform()
         self.count += 1
         return self.ret

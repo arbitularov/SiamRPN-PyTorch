@@ -81,7 +81,6 @@ class SiameseRPN(nn.Module):
         self.load_state_dict(checkpoint)
         print('Resume checkpoint from {}'.format(weight))
 
-
 class TrackerSiamRPN(Tracker):
 
     def __init__(self, net_path=None, **kargs):
@@ -100,16 +99,6 @@ class TrackerSiamRPN(Tracker):
             self.net.load_state_dict(torch.load(
                 net_path, map_location=lambda storage, loc: storage))
         # self.net = self.net.to(self.device)
-
-        '''setup optimizer'''
-
-        self.criterion = MultiBoxLoss()
-
-        self.optimizer = torch.optim.SGD(
-            self.net.parameters(),
-            lr=0.001,
-            momentum=0.9,
-            weight_decay = 5e-5)
 
     def init(self, image, box):
 
@@ -149,83 +138,6 @@ class TrackerSiamRPN(Tracker):
         #print('box', box)
 
         return box
-
-    def step(self, ret, epoch, backward=True, update_lr=False):
-        if backward:
-            self.net.train()
-            if update_lr:
-                print(self.lr_scheduler.step())
-        else:
-            self.net.eval()
-
-        cur_lr = adjust_learning_rate(0.001, self.optimizer, epoch, gamma=0.1)
-
-        template = ret['template_tensor']#.cuda()
-        detection= ret['detection_tensor']#.cuda()
-        pos_neg_diff = ret['pos_neg_diff_tensor']#.cuda()
-        cout, rout = self.net(template, detection)
-        predictions, targets = (cout, rout), pos_neg_diff
-        closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index = self.criterion(predictions, targets)
-
-        if backward:
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-
-        return loss.item() #closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr
-
-
-class MultiBoxLoss(nn.Module):
-    def __init__(self):
-        super(MultiBoxLoss, self).__init__()
-
-    def forward(self, predictions, targets):
-
-        cout, rout = predictions
-
-        """ class """
-        class_pred, class_target = cout, targets[:, 0].long()
-        pos_index , neg_index    = list(np.where(class_target.cpu() == 1)[0]), list(np.where(class_target.cpu() == 0)[0])
-        pos_num, neg_num         = len(pos_index), len(neg_index)
-        class_pred, class_target = class_pred[pos_index + neg_index], class_target[pos_index + neg_index]
-
-        closs = F.cross_entropy(class_pred, class_target, reduction='none')
-        closs = torch.div(torch.sum(closs), 64)
-
-        """ regression """
-        reg_pred = rout
-        reg_target = targets[:, 1:]
-        rloss = F.smooth_l1_loss(reg_pred, reg_target, reduction='none') #1445, 4
-        rloss = torch.div(torch.sum(rloss, dim = 1), 4)
-        rloss = torch.div(torch.sum(rloss[pos_index]), 16)
-
-        loss = closs + rloss
-        return closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-def adjust_learning_rate(lr, optimizer, epoch, gamma=0.1):
-    """Sets the learning rate to the initial LR decayed 0.9 every 50 epochs"""
-    lr = lr * (0.9 ** (epoch // 1))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return lr
-
 
 if __name__ == '__main__':
     model = SiameseRPN()

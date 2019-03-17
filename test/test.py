@@ -6,7 +6,7 @@ from net import TrackerSiamRPN
 if __name__ == '__main__':
 
     '''setup tracker'''
-    net_path = 'model_e1.pth'
+    net_path = '../train/experiments/default/model/model_e6.pth'
     tracker = TrackerSiamRPN(net_path=net_path)
 
     '''setup experiments'''
