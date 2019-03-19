@@ -71,14 +71,72 @@ class SiameseRPN(nn.Module):
         coutput = F.conv2d(cinput, ckernal)
         routput = F.conv2d(rinput, rkernal)
 
-        coutput = coutput.squeeze().permute(1,2,0).reshape(-1, 2)
-        routput = routput.squeeze().permute(1,2,0).reshape(-1, 4)
-        return coutput, routput
+        #coutput = coutput.squeeze().permute(1,2,0).reshape(-1, 2)
+        #routput = routput.squeeze().permute(1,2,0).reshape(-1, 4)
+        return routput, coutput
 
     def resume(self, weight):
         checkpoint = torch.load(weight)
         self.load_state_dict(checkpoint)
         print('Resume checkpoint from {}'.format(weight))
+
+class SiamRPN(nn.Module):
+
+    def __init__(self, anchor_num=5):
+        super(SiamRPN, self).__init__()
+        self.anchor_num = anchor_num
+        self.feature = nn.Sequential(
+            # conv1
+            nn.Conv2d(3, 64, 11, 2),
+            #nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(3, 2),
+            # conv2
+            nn.Conv2d(64, 198, 5, 1),
+            #nn.BatchNorm2d(198),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(3, 2),
+            # conv3
+            nn.Conv2d(198, 384, 3, 1),
+            #nn.BatchNorm2d(384),
+            nn.ReLU(inplace=True),
+            # conv4
+            nn.Conv2d(384, 256, 3, 1),
+            #nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            # conv5
+            nn.Conv2d(256, 256, 3, 1))
+            #nn.BatchNorm2d(256))
+
+        self.conv_reg_z = nn.Conv2d(256, 256 * 4 * anchor_num, 3, 1)
+        self.conv_reg_x = nn.Conv2d(256, 256, 3)
+        self.conv_cls_z = nn.Conv2d(256, 256 * 2 * anchor_num, 3, 1)
+        self.conv_cls_x = nn.Conv2d(256, 256, 3)
+        self.adjust_reg = nn.Conv2d(4 * anchor_num, 4 * anchor_num, 1)
+
+    def forward(self, z, x):
+        return self.inference(x, *self.learn(z))
+
+    def learn(self, z):
+        z          = self.feature(z)
+        kernel_reg = self.conv_reg_z(z)
+        kernel_cls = self.conv_cls_z(z)
+
+        k          = kernel_reg.size()[-1]
+        kernel_reg = kernel_reg.view(4 * self.anchor_num, 256, k, k)
+        kernel_cls = kernel_cls.view(2 * self.anchor_num, 256, k, k)
+
+        return kernel_reg, kernel_cls
+
+    def inference(self, x, kernel_reg, kernel_cls):
+        x       = self.feature(x)
+        x_reg   = self.conv_reg_x(x)
+        x_cls   = self.conv_cls_x(x)
+
+        out_reg = self.adjust_reg(F.conv2d(x_reg, kernel_reg))
+        out_cls = F.conv2d(x_cls, kernel_cls)
+
+        return out_reg, out_cls
 
 
 class TrackerSiamRPN(Tracker):
@@ -88,26 +146,26 @@ class TrackerSiamRPN(Tracker):
             name='SiamRPN', is_deterministic=True)
 
         # setup GPU device if available
-        #self.cuda = torch.cuda.is_available()
-        #self.device = torch.device('cuda:0' if self.cuda else 'cpu')
-        self.params = params
+        # self.cuda   = torch.cuda.is_available()
+        # self.device = torch.device('cuda:0' if self.cuda else 'cpu')
+        self.params   = params
 
         '''setup model'''
-        self.net = SiameseRPN()
+        #self.net = SiameseRPN()
+        self.net = SiamRPN()
 
         if net_path is not None:
             self.net.load_state_dict(torch.load(
-                net_path, map_location=lambda storage, loc: storage))
+                net_path, map_location = lambda storage, loc: storage ))
         #self.net = self.net.to(self.device)
 
         '''setup optimizer'''
+        self.criterion   = MultiBoxLoss()
 
-        self.criterion = MultiBoxLoss()
-
-        self.optimizer = torch.optim.SGD(
+        self.optimizer   = torch.optim.SGD(
             self.net.parameters(),
-            lr=self.params["lr"],
-            momentum=self.params["momentum"],
+            lr           = self.params["lr"],
+            momentum     = self.params["momentum"],
             weight_decay = self.params["weight_decay"])
 
     def step(self, ret, epoch, backward=True, update_lr=False):
@@ -120,10 +178,26 @@ class TrackerSiamRPN(Tracker):
 
         cur_lr = adjust_learning_rate(self.params["lr"], self.optimizer, epoch, gamma=0.1)
 
-        template = ret['template_tensor']#.cuda()
-        detection= ret['detection_tensor']#.cuda()
+        template     = ret['template_tensor']#.cuda()
+        detection    = ret['detection_tensor']#.cuda()
+        '''print('template', template.shape)
+        print('detection', detection.shape)'''
         pos_neg_diff = ret['pos_neg_diff_tensor']#.cuda()
-        cout, rout = self.net(template, detection)
+
+
+        kernel_reg, kernel_cls = self.net.learn(template)
+        rout, cout   = self.net.inference(detection, kernel_reg, kernel_cls)
+        '''print('rout', rout.shape)
+        print('cout', cout.shape)
+        offsets = rout.permute(1, 2, 3, 0).contiguous().view(4, -1).cpu().detach().numpy()
+        print('offsets', offsets.shape)
+        print('np.exp(offsets[2])', np.exp(offsets[2]), offsets[2])'''
+        #print('self.anchors[:, 2]', self.anchors[:, 2])
+        cout         = cout.squeeze().permute(1,2,0).reshape(-1, 2)
+        rout         = rout.squeeze().permute(1,2,0).reshape(-1, 4)
+
+        #print('cout, rout', cout.shape, rout.shape)
+
         predictions, targets = (cout, rout), pos_neg_diff
         closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index = self.criterion(predictions, targets)
 

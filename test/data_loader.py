@@ -120,7 +120,7 @@ class TrainDataLoader(object):
         self.image = image
         image_size = np.asarray(image)
         self.box = box
-        self.anchor_generator = Anchor_ms(image_size.shape[0], image_size.shape[1])
+        self.anchor_generator = Anchor_ms(out_feature,out_feature) #(image_size.shape[0], image_size.shape[1])
         self.max_inter = max_inter
         self.anchors = self.anchor_generator.gen_anchors() #centor
         self.ret = {}
