@@ -15,5 +15,25 @@ python3 train_siamrpn.py --train_path=/path/to/dataset/GOT-10k/train
 
 
 ## pip install
-
+```
 pip3 install shapely
+```
+
+## How to fix GOT-10k dataset 
+
+1. First you need to delete four videos:
+```
+GOT-10k_Train_008628 
+GOT-10k_Train_008630 
+GOT-10k_Train_009058  
+GOT-10k_Train_009059
+```
+Because they are ymin and xmin is greater than the size of the image.
+
+2. Run the fixedDataset.py script:
+```
+python3 fixedDataset.py --dataset_path=/path/to/dataset/GOT-10k/train
+```
+
+
+
