@@ -21,6 +21,14 @@ pip3 install shapely
 
 ## How to fix GOT-10k dataset 
 
+<center>
+    <figure>
+        <img src="img/error.png" height="60%" width="100%">
+        <figcaption>
+        </figcaption>
+    </figure>
+</center>
+
 1. First you need to delete four videos:
 ```
 GOT-10k_Train_008628 
@@ -30,10 +38,29 @@ GOT-10k_Train_009059
 ```
 Because they are ymin and xmin is greater than the size of the image.
 
-2. Run the fixedDataset.py script:
+2. Run the fixed.py script:
 ```
-python3 fixedDataset.py --dataset_path=/path/to/dataset/GOT-10k/train
+python3 fixed.py --dataset_path=/path/to/dataset/GOT-10k/train
 ```
+<center>
+    <figure>
+        <img src="img/100.png" height="60%" width="100%">
+        <figcaption>
+        </figcaption>
+    </figure>
+</center>
+
+After you have new_file.txt file. In this file a lot of information about where the error. 
+
+<center>
+    <figure>
+        <img src="img/new_file.png" height="60%" width="100%">
+        <figcaption>
+        </figcaption>
+    </figure>
+</center>
+
+
 
 
 
