@@ -54,13 +54,10 @@ After you have new_file.txt file. In this file a lot of information about where 
 
 <center>
     <figure>
-        <img src="img/new_file.png" height="60%" width="100%">
+        <img src="img/new_file.png" height="60%" width="60%">
         <figcaption>
         </figcaption>
     </figure>
 </center>
 
-
-
-
-
+You do not need to change anything yourself, the fixed.py script will do it for you.
