@@ -47,6 +47,7 @@ class Anchor_ms(object):
     def diff_anchor_gt(self, gt):
         eps = self.eps
         anchors, gt = self.anchors.copy(), gt.copy()
+        print('gt', gt)
         diff = np.zeros_like(anchors, dtype = np.float32)
         diff[:,0] = (gt[0] - anchors[:,0])/(anchors[:,2] + eps)
         diff[:,1] = (gt[1] - anchors[:,1])/(anchors[:,3] + eps)
@@ -116,7 +117,7 @@ class Anchor_ms(object):
         return over_square/all_square
 
 class TrainDataLoader(object):
-    def __init__(self, img_dir_path, out_feature = 17, max_inter = 80):
+    def __init__(self, img_dir_path, out_feature = 19, max_inter = 80):
         assert osp.isdir(img_dir_path), 'input img_dir_path error'
         self.anchor_generator = Anchor_ms(out_feature, out_feature)
         self.img_dir_path = img_dir_path # this is a root dir contain subclass
@@ -163,7 +164,10 @@ class TrainDataLoader(object):
                 self.max_inter = sub_class_img_num//2
 
             template_index = np.clip(random.choice(range(0, max(1, sub_class_img_num - self.max_inter))), 0, sub_class_img_num-1)
+            print('template_index', template_index)
             detection_index= np.clip(random.choice(range(1, max(2, self.max_inter))) + template_index, 0, sub_class_img_num-1)
+            print('detection_index', detection_index)
+
 
             template_name, detection_name  = sub_class_img_name[template_index], sub_class_img_name[detection_index]
             template_img_path, detection_img_path = osp.join(sub_class_dir_path, template_name), osp.join(sub_class_dir_path, detection_name)
@@ -237,9 +241,9 @@ class TrainDataLoader(object):
 
         # resize
         self.ret['template_cropped_resized'] = self.ret['template_cropped'].copy().resize((127, 127))
-        self.ret['detection_cropped_resized']= self.ret['detection_cropped'].copy().resize((256, 256))
+        self.ret['detection_cropped_resized']= self.ret['detection_cropped'].copy().resize((271, 271))
         self.ret['template_cropprd_resized_ratio'] = round(127/template_square_size, 2)
-        self.ret['detection_cropped_resized_ratio'] = round(256/detection_square_size, 2)
+        self.ret['detection_cropped_resized_ratio'] = round(271/detection_square_size, 2)
 
         # compute target in detection, and then we will compute IOU
         # whether target in detection part

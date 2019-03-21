@@ -15,20 +15,31 @@ from got10k.trackers import Tracker
 model_urls = {'alexnet': 'https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth'}
 
 class SiameseRPN(nn.Module):
+
     def __init__(self, test_video=False):
         super(SiameseRPN, self).__init__()
         self.features = nn.Sequential(                  #1, 3, 256, 256
+            #conv1
             nn.Conv2d(3, 64, kernel_size=11, stride=2), #1, 64,123, 123
+            nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),      #1, 64, 60,  60
+            #conv2
             nn.Conv2d(64, 192, kernel_size=5),          #1,192, 56,  56
+            nn.BatchNorm2d(192),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),      #1,192, 27,  27
+            #conv3
             nn.Conv2d(192, 384, kernel_size=3),         #1,384, 25,  25
+            nn.BatchNorm2d(384),
             nn.ReLU(inplace=True),
+            #conv4
             nn.Conv2d(384, 256, kernel_size=3),         #1,256, 23,  23
+            #nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
+            #conv5
             nn.Conv2d(256, 256, kernel_size=3),         #1,256, 21,  21
+            #nn.BatchNorm2d(256)
         )
 
         self.k = 5
@@ -85,28 +96,29 @@ class SiamRPN(nn.Module):
     def __init__(self, anchor_num=5):
         super(SiamRPN, self).__init__()
         self.anchor_num = anchor_num
-        self.feature = nn.Sequential(
-            # conv1
-            nn.Conv2d(3, 64, 11, 2),
-            #nn.BatchNorm2d(64),
+        self.feature = nn.Sequential(                 #1, 3, 256, 256
+            #conv1
+            nn.Conv2d(3, 64, kernel_size=11, stride=2), #1, 64,123, 123
+            nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(3, 2),
-            # conv2
-            nn.Conv2d(64, 198, 5, 1),
-            #nn.BatchNorm2d(198),
+            nn.MaxPool2d(kernel_size=3, stride=2),      #1, 64, 60,  60
+            #conv2
+            nn.Conv2d(64, 192, kernel_size=5),          #1,192, 56,  56
+            nn.BatchNorm2d(192),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(3, 2),
-            # conv3
-            nn.Conv2d(198, 384, 3, 1),
-            #nn.BatchNorm2d(384),
+            nn.MaxPool2d(kernel_size=3, stride=2),      #1,192, 27,  27
+            #conv3
+            nn.Conv2d(192, 384, kernel_size=3),         #1,384, 25,  25
+            nn.BatchNorm2d(384),
             nn.ReLU(inplace=True),
-            # conv4
-            nn.Conv2d(384, 256, 3, 1),
+            #conv4
+            nn.Conv2d(384, 256, kernel_size=3),         #1,256, 23,  23
             #nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-            # conv5
-            nn.Conv2d(256, 256, 3, 1))
-            #nn.BatchNorm2d(256))
+            #conv5
+            nn.Conv2d(256, 256, kernel_size=3),         #1,256, 21,  21
+            #nn.BatchNorm2d(256)
+        )
 
         self.conv_reg_z = nn.Conv2d(256, 256 * 4 * anchor_num, 3, 1)
         self.conv_reg_x = nn.Conv2d(256, 256, 3)
@@ -180,18 +192,17 @@ class TrackerSiamRPN(Tracker):
 
         template     = ret['template_tensor']#.cuda()
         detection    = ret['detection_tensor']#.cuda()
-        '''print('template', template.shape)
-        print('detection', detection.shape)'''
+        #print('template', template.shape)
+        #print('detection', detection.shape)
         pos_neg_diff = ret['pos_neg_diff_tensor']#.cuda()
+        #print('pos_neg_diff', pos_neg_diff.shape)
 
-
-        kernel_reg, kernel_cls = self.net.learn(template)
-        rout, cout   = self.net.inference(detection, kernel_reg, kernel_cls)
-        '''print('rout', rout.shape)
-        print('cout', cout.shape)
+        rout, cout   = self.net(template, detection)
+        #print('rout', rout.shape)
+        #print('cout', cout.shape)
         offsets = rout.permute(1, 2, 3, 0).contiguous().view(4, -1).cpu().detach().numpy()
-        print('offsets', offsets.shape)
-        print('np.exp(offsets[2])', np.exp(offsets[2]), offsets[2])'''
+        #print('offsets', offsets.shape)
+        #print('np.exp(offsets[2])', np.exp(offsets[2]), offsets[2])
         #print('self.anchors[:, 2]', self.anchors[:, 2])
         cout         = cout.squeeze().permute(1,2,0).reshape(-1, 2)
         rout         = rout.squeeze().permute(1,2,0).reshape(-1, 4)

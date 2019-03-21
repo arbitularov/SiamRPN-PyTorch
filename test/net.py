@@ -18,7 +18,7 @@ from got10k.trackers import Tracker
 
 model_urls = {'alexnet': 'https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth'}
 
-class SiameseRPN(nn.Module):
+class SiameseRPNOld(nn.Module):
     def __init__(self, test_video=False):
         super(SiameseRPN, self).__init__()
         self.features = nn.Sequential(                  #1, 3, 256, 256
@@ -76,6 +76,83 @@ class SiameseRPN(nn.Module):
         routput = F.conv2d(rinput, rkernal)
         print('coutput', coutput.shape)
         print('routput', routput.shape)
+
+        #coutput = coutput.squeeze().permute(1,2,0).reshape(-1, 2)
+        #routput = routput.squeeze().permute(1,2,0).reshape(-1, 4)
+        return routput, coutput
+
+    def resume(self, weight):
+        checkpoint = torch.load(weight)
+        self.load_state_dict(checkpoint)
+        print('Resume checkpoint from {}'.format(weight))
+
+class SiameseRPN(nn.Module):
+
+    def __init__(self, test_video=False):
+        super(SiameseRPN, self).__init__()
+        self.features = nn.Sequential(                  #1, 3, 256, 256
+            #conv1
+            nn.Conv2d(3, 64, kernel_size=11, stride=2), #1, 64,123, 123
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),      #1, 64, 60,  60
+            #conv2
+            nn.Conv2d(64, 192, kernel_size=5),          #1,192, 56,  56
+            nn.BatchNorm2d(192),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),      #1,192, 27,  27
+            #conv3
+            nn.Conv2d(192, 384, kernel_size=3),         #1,384, 25,  25
+            nn.BatchNorm2d(384),
+            nn.ReLU(inplace=True),
+            #conv4
+            nn.Conv2d(384, 256, kernel_size=3),         #1,256, 23,  23
+            #nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            #conv5
+            nn.Conv2d(256, 256, kernel_size=3),         #1,256, 21,  21
+            #nn.BatchNorm2d(256)
+        )
+
+        self.k = 5
+        self.s = 4
+        self.conv1 = nn.Conv2d(256, 2*self.k*256, kernel_size=3)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(256, 4*self.k*256, kernel_size=3)
+        self.relu2 = nn.ReLU(inplace=True)
+        self.conv3 = nn.Conv2d(256, 256, kernel_size=3)
+        self.relu3 = nn.ReLU(inplace=True)
+        self.conv4 = nn.Conv2d(256, 256, kernel_size=3)
+        self.relu4 = nn.ReLU(inplace=True)
+
+        self.cconv = nn.Conv2d(256, 2* self.k, kernel_size = 4, bias = False)
+        self.rconv = nn.Conv2d(256, 4* self.k, kernel_size = 4, bias = False)
+
+        #self.reset_params() # we will not reset parameter
+
+    def reset_params(self):
+        pretrained_dict = model_zoo.load_url(model_urls['alexnet'])
+        model_dict = self.state_dict()
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        self.load_state_dict(model_dict)
+        print('Load Alexnet models Done' )
+
+    def forward(self, template, detection):
+        template = self.features(template)
+        detection = self.features(detection)
+
+        ckernal = self.conv1(template)
+        ckernal = ckernal.view(2* self.k, 256, 4, 4)
+        cinput  = self.conv3(detection)
+
+
+        rkernal = self.conv2(template)
+        rkernal = rkernal.view(4* self.k, 256, 4, 4)
+        rinput  = self.conv4(detection)
+
+        coutput = F.conv2d(cinput, ckernal)
+        routput = F.conv2d(rinput, rkernal)
 
         #coutput = coutput.squeeze().permute(1,2,0).reshape(-1, 2)
         #routput = routput.squeeze().permute(1,2,0).reshape(-1, 4)
