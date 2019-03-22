@@ -1,6 +1,14 @@
 # SiamRPN-PyTorch
 Implementation SiamRPN on PyTorch with GOT-10k dataset  
 
+<center>
+    <figure>
+        <img src="img/SiamRPN.png" height="60%" width="100%">
+        <figcaption>
+        </figcaption>
+    </figure>
+</center>
+
 ## How to run Training
 1. Download the GOT-10k dataset in http://got-10k.aitestunion.com/downloads
 2. Run the train_siamrpn.py script:
