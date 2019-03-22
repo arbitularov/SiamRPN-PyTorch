@@ -8,7 +8,7 @@ from siamrpn import TrackerSiamRPN
 if __name__ == '__main__':
     # setup tracker
     #net_path = '/Users/arbi/Downloads/model.pth'
-    net_path = '../train/experiments/default/model/model_e3.pth'
+    net_path = '../train/experiments/default/model/model_e4.pth'
 
     tracker = TrackerSiamRPN(net_path=net_path)
 

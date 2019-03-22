@@ -14,22 +14,23 @@ class Anchor_ms(object):
     """
     stable version for anchor generator
     """
-    def __init__(self, feature_w, feature_h):
-        self.w      = feature_w
-        self.h      = feature_h
-        self.base   = 64                   # base size for anchor box
-        self.stride = 15                   # center point shift stride
-        self.scale  = [1/3, 1/2, 1, 2, 3]  # aspect ratio
-        self.anchors= self.gen_anchors()   # xywh
+    def __init__(self, feature_w, feature_h, params):
+        #self.w      = feature_w
+        #self.h      = feature_h
+        #self.base   = 64                   # base size for anchor box
+        #self.stride = 16                   # center point shift stride
+        #self.scale  = [1/3, 1/2, 1, 2, 3]  # aspect ratio
+        self.anchors= self.create_anchors(params)   # xywh
         self.eps    = 0.01
 
-    def gen_single_anchor(self):
+    '''def gen_single_anchor(self):
         scale = np.array(self.scale, dtype = np.float32)
         s = self.base * self.base
         w, h = np.sqrt(s/scale), np.sqrt(s*scale)
         c_x, c_y = (self.stride-1)//2, (self.stride-1)//2
         anchor = np.vstack([c_x*np.ones_like(scale, dtype=np.float32), c_y*np.ones_like(scale, dtype=np.float32), w, h]).transpose()
         anchor = self.center_to_corner(anchor)
+        # print('anchor', anchor.shape)
         return anchor
 
     def gen_anchors(self):
@@ -41,6 +42,40 @@ class Anchor_ms(object):
         a = shifts.shape[0]
         anchors = (anchor.reshape((1,k,4))+shifts.reshape((a,1,4))).reshape((a*k, 4)) # corner format
         anchors = self.corner_to_center(anchors)
+        # print('anchors', anchors)
+        # print('anchors.shape', anchors.shape)
+        return anchors'''
+
+    def create_anchors(self, params):
+        response_sz = (params['detection_img_size'] - params['template_img_size']) // params['stride'] + 1 #19
+
+        anchor_num = len(params['ratios']) * len(params['scales'])
+        anchors = np.zeros((anchor_num, 4), dtype=np.float32)
+
+        size = params['stride'] * params['stride']
+        ind = 0
+        for ratio in params['ratios']:
+            w = int(np.sqrt(size / ratio))
+            h = int(w * ratio)
+            for scale in params['scales']:
+                anchors[ind, 0] = 0
+                anchors[ind, 1] = 0
+                anchors[ind, 2] = w * scale
+                anchors[ind, 3] = h * scale
+                ind += 1
+        anchors = np.tile(
+            anchors, response_sz * response_sz).reshape((-1, 4))
+
+        begin = -(response_sz // 2) * params['stride']
+        xs, ys = np.meshgrid(
+            begin + params['stride'] * np.arange(response_sz),
+            begin + params['stride'] * np.arange(response_sz))
+        xs = np.tile(xs.flatten(), (anchor_num, 1)).flatten()
+        ys = np.tile(ys.flatten(), (anchor_num, 1)).flatten()
+        anchors[:, 0] = xs.astype(np.float32)
+        anchors[:, 1] = ys.astype(np.float32)
+        print('anchors', anchors)
+        print('anchors.shape', anchors.shape)
         return anchors
 
     # float
@@ -102,8 +137,8 @@ class Anchor_ms(object):
         box1, box2 = box1.copy(), box2.copy()
         N=box1.shape[0]
         K=box2.shape[0]
-        box1=np.array(box1.reshape((N,1,4)))+np.zeros((1,K,4))#box1=[N,K,4]
-        box2=np.array(box2.reshape((1,K,4)))+np.zeros((N,1,4))#box1=[N,K,4]
+        box1=np.array(box1.reshape((N,1,4)))+np.zeros((1,K,4))           # box1=[N,K,4]
+        box2=np.array(box2.reshape((1,K,4)))+np.zeros((N,1,4))           # box1=[N,K,4]
         x_max=np.max(np.stack((box1[:,:,0],box2[:,:,0]),axis=-1),axis=2)
         x_min=np.min(np.stack((box1[:,:,2],box2[:,:,2]),axis=-1),axis=2)
         y_max=np.max(np.stack((box1[:,:,1],box2[:,:,1]),axis=-1),axis=2)
@@ -116,16 +151,23 @@ class Anchor_ms(object):
         all_square=(box1[:,:,2]-box1[:,:,0])*(box1[:,:,3]-box1[:,:,1])+(box2[:,:,2]-box2[:,:,0])*(box2[:,:,3]-box2[:,:,1])-over_square
         return over_square/all_square
 
+
+
+
+
+
 class TrainDataLoader(object):
-    def __init__(self, img_dir_path, out_feature = 19, max_inter = 80):
+    def __init__(self, img_dir_path, params, out_feature = 19, max_inter = 80):
         assert osp.isdir(img_dir_path), 'input img_dir_path error'
-        self.anchor_generator = Anchor_ms(out_feature, out_feature)
+        self.anchor_generator = Anchor_ms(out_feature, out_feature, params)
         self.img_dir_path = img_dir_path # this is a root dir contain subclass
         self.max_inter = max_inter
         self.sub_class_dir = [sub_class_dir for sub_class_dir in os.listdir(img_dir_path) if os.path.isdir(os.path.join(img_dir_path, sub_class_dir))]
-        self.anchors = self.anchor_generator.gen_anchors() #centor
+        #self.anchors = self.anchor_generator.gen_anchors() #centor
+        self.anchors = self.anchor_generator.create_anchors(params) #centor
         self.ret = {}
         self.count = 0
+        self.params = params
 
     def get_transform_for_train(self):
         transform_list = []
@@ -240,10 +282,10 @@ class TrainDataLoader(object):
         self.ret['detection_rbcords_of_padding_image']  = (cx + detection_square_size//2 + left, cy + detection_square_size//2 + top)
 
         # resize
-        self.ret['template_cropped_resized'] = self.ret['template_cropped'].copy().resize((127, 127))
-        self.ret['detection_cropped_resized']= self.ret['detection_cropped'].copy().resize((271, 271))
-        self.ret['template_cropprd_resized_ratio'] = round(127/template_square_size, 2)
-        self.ret['detection_cropped_resized_ratio'] = round(271/detection_square_size, 2)
+        self.ret['template_cropped_resized'] = self.ret['template_cropped'].copy().resize((self.params["template_img_size"], self.params["template_img_size"]))
+        self.ret['detection_cropped_resized']= self.ret['detection_cropped'].copy().resize((self.params["detection_img_size"], self.params["detection_img_size"]))
+        self.ret['template_cropprd_resized_ratio'] = round(self.params["template_img_size"]/template_square_size, 2)
+        self.ret['detection_cropped_resized_ratio'] = round(self.params["detection_img_size"]/detection_square_size, 2)
 
         # compute target in detection, and then we will compute IOU
         # whether target in detection part

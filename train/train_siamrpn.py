@@ -35,8 +35,6 @@ parser.add_argument('--experiment_name', default='default', metavar='DIR',help='
 
 parser.add_argument('--checkpoint_path', default=None, help='resume')
 
-parser.add_argument('--max_epoches', default=20, type=int, metavar='N', help='number of total epochs to run')
-
 parser.add_argument('--max_batches', default=0, type=int, metavar='N', help='number of batch in one epoch')
 
 
@@ -53,7 +51,7 @@ def main():
         params = json.load(data_file)
 
     """ train dataloader """
-    data_loader = TrainDataLoader(args.train_path)
+    data_loader = TrainDataLoader(args.train_path, params)
 
     """ compute max_batches """
     for root, dirs, files in os.walk(args.train_path):
@@ -84,10 +82,10 @@ def main():
     """ train phase """
     closses, rlosses, tlosses = AverageMeter(), AverageMeter(), AverageMeter()
     steps = 0
-    for epoch in range(start, args.max_epoches):
+    for epoch in range(start, params['epoches']):
         #cur_lr = adjust_learning_rate(params["lr"], optimizer, epoch, gamma=0.1)
         index_list = range(data_loader.__len__())
-        for example in tqdm(range(100)): # args.max_batches
+        for example in tqdm(range(10)): # args.max_batches
             a = random.choice(index_list)
             print('a', a)
 
@@ -105,7 +103,7 @@ def main():
             tlosses.update(loss.cpu().item())
             steps+=1
 
-            if example % 100 == 0:
+            if example % 1 == 0:
                 print("Epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1), steps, args.max_batches, 100*(steps)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
 
 

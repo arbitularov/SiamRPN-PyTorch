@@ -35,11 +35,11 @@ class SiameseRPN(nn.Module):
             nn.ReLU(inplace=True),
             #conv4
             nn.Conv2d(384, 256, kernel_size=3),         #1,256, 23,  23
-            #nn.BatchNorm2d(256),
+            nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
             #conv5
             nn.Conv2d(256, 256, kernel_size=3),         #1,256, 21,  21
-            #nn.BatchNorm2d(256)
+            nn.BatchNorm2d(256)
         )
 
         self.k = 5
@@ -55,6 +55,8 @@ class SiameseRPN(nn.Module):
 
         self.cconv = nn.Conv2d(256, 2* self.k, kernel_size = 4, bias = False)
         self.rconv = nn.Conv2d(256, 4* self.k, kernel_size = 4, bias = False)
+
+        self.batcn = nn.BatchNorm2d(256)
 
         #self.reset_params() # we will not reset parameter
 
@@ -96,54 +98,53 @@ class SiamRPN(nn.Module):
     def __init__(self, anchor_num=5):
         super(SiamRPN, self).__init__()
         self.anchor_num = anchor_num
-        self.feature = nn.Sequential(                 #1, 3, 256, 256
-            #conv1
-            nn.Conv2d(3, 64, kernel_size=11, stride=2), #1, 64,123, 123
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),      #1, 64, 60,  60
-            #conv2
-            nn.Conv2d(64, 192, kernel_size=5),          #1,192, 56,  56
+        self.feature = nn.Sequential(
+            # conv1
+            nn.Conv2d(3, 192, 11, 2),
             nn.BatchNorm2d(192),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),      #1,192, 27,  27
-            #conv3
-            nn.Conv2d(192, 384, kernel_size=3),         #1,384, 25,  25
-            nn.BatchNorm2d(384),
+            nn.MaxPool2d(3, 2),
+            # conv2
+            nn.Conv2d(192, 512, 5, 1),
+            nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
-            #conv4
-            nn.Conv2d(384, 256, kernel_size=3),         #1,256, 23,  23
-            #nn.BatchNorm2d(256),
+            nn.MaxPool2d(3, 2),
+            # conv3
+            nn.Conv2d(512, 768, 3, 1),
+            nn.BatchNorm2d(768),
             nn.ReLU(inplace=True),
-            #conv5
-            nn.Conv2d(256, 256, kernel_size=3),         #1,256, 21,  21
-            #nn.BatchNorm2d(256)
-        )
+            # conv4
+            nn.Conv2d(768, 768, 3, 1),
+            #nn.BatchNorm2d(768),
+            nn.ReLU(inplace=True),
+            # conv5
+            nn.Conv2d(768, 512, 3, 1))
+            #nn.BatchNorm2d(512))
 
-        self.conv_reg_z = nn.Conv2d(256, 256 * 4 * anchor_num, 3, 1)
-        self.conv_reg_x = nn.Conv2d(256, 256, 3)
-        self.conv_cls_z = nn.Conv2d(256, 256 * 2 * anchor_num, 3, 1)
-        self.conv_cls_x = nn.Conv2d(256, 256, 3)
+        self.conv_reg_z = nn.Conv2d(512, 512 * 4 * anchor_num, 3, 1)
+        self.conv_reg_x = nn.Conv2d(512, 512, 3)
+        self.conv_cls_z = nn.Conv2d(512, 512 * 2 * anchor_num, 3, 1)
+        self.conv_cls_x = nn.Conv2d(512, 512, 3)
         self.adjust_reg = nn.Conv2d(4 * anchor_num, 4 * anchor_num, 1)
 
     def forward(self, z, x):
         return self.inference(x, *self.learn(z))
 
     def learn(self, z):
-        z          = self.feature(z)
+        z = self.feature(z)
         kernel_reg = self.conv_reg_z(z)
         kernel_cls = self.conv_cls_z(z)
 
-        k          = kernel_reg.size()[-1]
-        kernel_reg = kernel_reg.view(4 * self.anchor_num, 256, k, k)
-        kernel_cls = kernel_cls.view(2 * self.anchor_num, 256, k, k)
+        k = kernel_reg.size()[-1]
+        kernel_reg = kernel_reg.view(4 * self.anchor_num, 512, k, k)
+        kernel_cls = kernel_cls.view(2 * self.anchor_num, 512, k, k)
 
         return kernel_reg, kernel_cls
 
     def inference(self, x, kernel_reg, kernel_cls):
-        x       = self.feature(x)
-        x_reg   = self.conv_reg_x(x)
-        x_cls   = self.conv_cls_x(x)
+        x = self.feature(x)
+        x_reg = self.conv_reg_x(x)
+        x_cls = self.conv_cls_x(x)
 
         out_reg = self.adjust_reg(F.conv2d(x_reg, kernel_reg))
         out_cls = F.conv2d(x_cls, kernel_cls)
@@ -201,8 +202,8 @@ class TrackerSiamRPN(Tracker):
         #print('rout', rout.shape)
         #print('cout', cout.shape)
         offsets = rout.permute(1, 2, 3, 0).contiguous().view(4, -1).cpu().detach().numpy()
-        #print('offsets', offsets.shape)
-        #print('np.exp(offsets[2])', np.exp(offsets[2]), offsets[2])
+        print('offsets', offsets.shape)
+        print('np.exp(offsets[2])', np.exp(offsets[2]), offsets[2])
         #print('self.anchors[:, 2]', self.anchors[:, 2])
         cout         = cout.squeeze().permute(1,2,0).reshape(-1, 2)
         rout         = rout.squeeze().permute(1,2,0).reshape(-1, 4)
@@ -276,8 +277,8 @@ if __name__ == '__main__':
     model = SiameseRPN()
 
     template = torch.ones((1, 3, 127, 127))
-    detection= torch.ones((1, 3, 256, 256))
+    detection= torch.ones((1, 3, 271, 271))
 
     y1, y2 = model(template, detection)
-    print(y1.shape) #[1, 10, 17, 17]
-    print(y2.shape) #[1, 20, 17, 17]15
+    print(y1.shape) #[1, 10, 19, 19]
+    print(y2.shape) #[1, 20, 19, 19]15
