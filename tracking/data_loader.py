@@ -261,12 +261,12 @@ class Anchor_ms(object):
         return over_square/all_square
 
 class TrainDataLoader(object):
-    def __init__(self, img_dir_path, params, out_feature = 19, max_inter = 80):
-        assert osp.isdir(img_dir_path), 'input img_dir_path error'
+    def __init__(self, params, out_feature = 19, max_inter = 80):
+
         self.anchor_generator = Anchor_ms(out_feature, out_feature)
-        self.img_dir_path = img_dir_path # this is a root dir contain subclass
+        #self.img_dir_path = img_dir_path # this is a root dir contain subclass
         self.max_inter = max_inter
-        self.sub_class_dir = [sub_class_dir for sub_class_dir in os.listdir(img_dir_path) if os.path.isdir(os.path.join(img_dir_path, sub_class_dir))]
+        #self.sub_class_dir = [sub_class_dir for sub_class_dir in os.listdir(img_dir_path) if os.path.isdir(os.path.join(img_dir_path, sub_class_dir))]
         self.anchors = self.anchor_generator.gen_anchors() #centor
         #self.anchors = self.anchor_generator.create_anchors(params) #centor
         self.ret = {}
@@ -280,11 +280,11 @@ class TrainDataLoader(object):
         return transforms.Compose(transform_list)
 
     # tuple
-    def _average(self):
-        assert self.ret.__contains__('template_img_path'), 'no template path'
+    def _average(self, template, detection):
+        '''assert self.ret.__contains__('template_img_path'), 'no template path'
         assert self.ret.__contains__('detection_img_path'),'no detection path'
         template = Image.open(self.ret['template_img_path'])
-        detection= Image.open(self.ret['detection_img_path'])
+        detection= Image.open(self.ret['detection_img_path'])'''
 
         mean_template = tuple(map(round, ImageStat.Stat(template).mean))
         mean_detection= tuple(map(round, ImageStat.Stat(detection).mean))
@@ -339,13 +339,13 @@ class TrainDataLoader(object):
         self.ret['anchors'] = self.anchors
         self._average()
 
-    def _pad_crop_resize(self):
+    def _pad_crop_resize(self, image, box, detection):
         #print('self.ret[template_img_path]', self.ret['template_img_path'])
         #print('self.ret[detection_img_path]', self.ret['detection_img_path'])
-        template_img, detection_img = Image.open(self.ret['template_img_path']), Image.open(self.ret['detection_img_path'])
+        template_img, detection_img = image, detection
 
         w, h = template_img.size
-        cx, cy, tw, th = self.ret['template_target_xywh']
+        cx, cy, tw, th = box[0], box[1], box[2], box[3]
         p = round((tw + th)/2, 2)
         template_square_size  = int(np.sqrt((tw + p)*(th + p))) #a
         detection_square_size = int(template_square_size * 2)   #A =2a
@@ -393,7 +393,7 @@ class TrainDataLoader(object):
 
         # compute target in detection, and then we will compute IOU
         # whether target in detection part
-        x, y, w, h = self.ret['detection_target_xywh']
+        '''x, y, w, h = self.ret['detection_target_xywh']
         self.ret['target_tlcords_of_padding_image'] = np.array([int(x+left-w//2), int(y+top-h//2)], dtype = np.float32)
         self.ret['target_rbcords_of_padding_image'] = np.array([int(x+left+w//2), int(y+top+h//2)], dtype = np.float32)
 
@@ -418,7 +418,7 @@ class TrainDataLoader(object):
         cx, cy, w, h = (x1+x2)//2, (y1+y2)//2, x2-x1, y2-y1
         self.ret['target_in_resized_detection_x1y1x2y2'] = np.array((x1, y1, x2, y2), dtype = np.int32)
         self.ret['target_in_resized_detection_xywh']     = np.array((cx, cy, w,  h) , dtype = np.int32)
-        self.ret['area_target_in_resized_detection'] = w * h
+        self.ret['area_target_in_resized_detection'] = w * h'''
 
     def _generate_pos_neg_diff(self):
         gt_box_in_detection = self.ret['target_in_resized_detection_xywh'].copy()
@@ -451,23 +451,22 @@ class TrainDataLoader(object):
         """PIL to Tensor"""
         template_pil = self.ret['template_cropped_resized'].copy()
         detection_pil= self.ret['detection_cropped_resized'].copy()
-        pos_neg_diff = self.ret['pos_neg_diff'].copy()
+        #pos_neg_diff = self.ret['pos_neg_diff'].copy()
 
         transform = self.get_transform_for_train()
         template_tensor = transform(template_pil)
         detection_tensor= transform(detection_pil)
         self.ret['template_tensor'] = template_tensor.unsqueeze(0)
         self.ret['detection_tensor']= detection_tensor.unsqueeze(0)
-        self.ret['pos_neg_diff_tensor'] = torch.Tensor(pos_neg_diff)
+        #self.ret['pos_neg_diff_tensor'] = torch.Tensor(pos_neg_diff)
 
-
-    def __get__(self, index):
-        self._pick_img_pairs(index)
-        self._pad_crop_resize()
-        self._generate_pos_neg_diff()
+    def __get__(self, image, box, detection):
+        self._average(image, detection)
+        self._pad_crop_resize(image, box, detection)
+        #self._generate_pos_neg_diff()
         self._tranform()
         self.count += 1
-        return self.ret
+        return self.ret, self.anchors
 
     def __len__(self):
         return len(self.sub_class_dir)

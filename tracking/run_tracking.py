@@ -1,18 +1,31 @@
 from __future__ import absolute_import
-
 from got10k.experiments import *
-
 from siamrpn import TrackerSiamRPN
+import argparse
+import os
+import json
 
+parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Tracking')
+
+parser.add_argument('--tracker_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
+parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
+parser.add_argument('--net_path', default='../train/experiments/default/model/model_e1.pth', metavar='DIR',help='path to weight')
+parser.add_argument('--visualize', default=True, help='visualize')
+
+args = parser.parse_args()
 
 if __name__ == '__main__':
-    # setup tracker
-    #net_path = '/Users/arbi/Downloads/model.pth'
-    net_path = '../train/experiments/default/model/model_e1.pth'
 
-    tracker = TrackerSiamRPN(net_path=net_path)
+    """Load the parameters from json file"""
+    json_path = os.path.join('experiments/{}'.format(args.experiment_name), 'parameters.json')
+    assert os.path.isfile(json_path), ("No json configuration file found at {}".format(json_path))
+    with open(json_path) as data_file:
+        params = json.load(data_file)
 
-    # setup experiments
+    '''setup tracker'''
+    tracker = TrackerSiamRPN(params, net_path = args.net_path)
+
+    '''setup experiments'''
     # 7 datasets with different versions
     '''experiments = ExperimentGOT10k('data/GOT-10k', subset='test'),
         ExperimentOTB('data/OTB', version=2015),
@@ -26,12 +39,14 @@ if __name__ == '__main__':
         ExperimentNfS('data/nfs', fps=240),
     ]
 
-    # run experiments
     for e in experiments:
         e.run(tracker, visualize=True)
         e.report([tracker.name])'''
 
-    experiments = ExperimentGOT10k('/Users/arbi/Desktop', subset='val', result_dir='results', report_dir='reports')
+    experiments = ExperimentGOT10k(args.tracker_path, subset='val',
+                    result_dir='experiments/{}/results'.format(args.experiment_name),
+                    report_dir='experiments/{}/reports'.format(args.experiment_name))
 
-    experiments.run(tracker, visualize=True)
+    '''run experiments'''
+    experiments.run(tracker, visualize = args.visualize)
     experiments.report([tracker.name])

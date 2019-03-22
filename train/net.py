@@ -127,13 +127,22 @@ class SiamRPN(nn.Module):
         self.conv_cls_x = nn.Conv2d(512, 512, 3)
         self.adjust_reg = nn.Conv2d(4 * anchor_num, 4 * anchor_num, 1)
 
+        #self.batcn = nn.BatchNorm2d(10240)
+        #self.batcn2 = nn.BatchNorm2d(5120)
+        #self.batcn3 = nn.BatchNorm2d(512)
+        #self.batcn4 = nn.BatchNorm2d(20)
+        #self.batcn5 = nn.BatchNorm2d(10)
+
     def forward(self, z, x):
         return self.inference(x, *self.learn(z))
 
     def learn(self, z):
         z = self.feature(z)
         kernel_reg = self.conv_reg_z(z)
+        #kernel_reg = self.batcn(kernel_reg)
+
         kernel_cls = self.conv_cls_z(z)
+        #kernel_cls = self.batcn2(kernel_cls)
 
         k = kernel_reg.size()[-1]
         kernel_reg = kernel_reg.view(4 * self.anchor_num, 512, k, k)
@@ -144,10 +153,18 @@ class SiamRPN(nn.Module):
     def inference(self, x, kernel_reg, kernel_cls):
         x = self.feature(x)
         x_reg = self.conv_reg_x(x)
+        #x_reg = self.batcn3(x_reg)
+
         x_cls = self.conv_cls_x(x)
+        #x_cls = self.batcn3(x_cls)
 
         out_reg = self.adjust_reg(F.conv2d(x_reg, kernel_reg))
         out_cls = F.conv2d(x_cls, kernel_cls)
+
+        #out_reg = self.batcn4(out_reg)
+        #out_cls = self.batcn5(out_cls)
+        #print('out_reg', out_reg.shape)
+        #print('out_cls', out_cls.shape)
 
         return out_reg, out_cls
 
