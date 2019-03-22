@@ -85,7 +85,7 @@ def main():
     for epoch in range(start, params['epoches']):
         #cur_lr = adjust_learning_rate(params["lr"], optimizer, epoch, gamma=0.1)
         index_list = range(data_loader.__len__())
-        for example in tqdm(range(10)): # args.max_batches
+        for example in tqdm(range(10000)): # args.max_batches
             a = random.choice(index_list)
             print('a', a)
 
@@ -103,7 +103,7 @@ def main():
             tlosses.update(loss.cpu().item())
             steps+=1
 
-            if example % 1 == 0:
+            if example % 10000 == 0:
                 print("Epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1), steps, args.max_batches, 100*(steps)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
 
 

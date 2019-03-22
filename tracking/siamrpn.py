@@ -93,25 +93,25 @@ class SiamRPN(nn.Module):
         self.feature = nn.Sequential(
             # conv1
             nn.Conv2d(3, 192, 11, 2),
-            nn.BatchNorm2d(192),
+            #nn.BatchNorm2d(192),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(3, 2),
             # conv2
             nn.Conv2d(192, 512, 5, 1),
-            nn.BatchNorm2d(512),
+            #nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(3, 2),
             # conv3
             nn.Conv2d(512, 768, 3, 1),
-            nn.BatchNorm2d(768),
+            #nn.BatchNorm2d(768),
             nn.ReLU(inplace=True),
             # conv4
             nn.Conv2d(768, 768, 3, 1),
-            nn.BatchNorm2d(768),
+            #nn.BatchNorm2d(768),
             nn.ReLU(inplace=True),
             # conv5
-            nn.Conv2d(768, 512, 3, 1),
-            nn.BatchNorm2d(512))
+            nn.Conv2d(768, 512, 3, 1))
+            #nn.BatchNorm2d(512))
 
         self.conv_reg_z = nn.Conv2d(512, 512 * 4 * anchor_num, 3, 1)
         self.conv_reg_x = nn.Conv2d(512, 512, 3)
@@ -163,6 +163,12 @@ class TrackerSiamRPN(Tracker):
                 net_path, map_location=lambda storage, loc: storage))
         self.net = self.net.to(self.device)
 
+        self.w      = 19
+        self.h      = 19
+        self.base   = 64                   # base size for anchor box
+        self.stride = 16                   # center point shift stride
+        self.scale  = [1/3, 1/2, 1, 2, 3]
+
     def parse_args(self, **kargs):
         self.cfg = {
             'exemplar_sz': 127,
@@ -173,7 +179,7 @@ class TrackerSiamRPN(Tracker):
             'scales': [8,],
             'penalty_k': 0.055,
             'window_influence': 0.42,
-            'lr': 0.00295
+            'lr': 0.295
             }
 
         for key, val in kargs.items():
@@ -196,10 +202,10 @@ class TrackerSiamRPN(Tracker):
 
         # generate anchors
         self.response_sz = (self.cfg.instance_sz - self.cfg.exemplar_sz) // self.cfg.total_stride + 1 #19
-        print('(self.cfg.instance_sz - self.cfg.exemplar_sz)', (self.cfg.instance_sz - self.cfg.exemplar_sz))
-        print('self.cfg.total_stride + 1', self.cfg.total_stride + 1)
-        print('self.response_sz', self.response_sz)
-        self.anchors = self._create_anchors(self.response_sz)
+        #print('(self.cfg.instance_sz - self.cfg.exemplar_sz)', (self.cfg.instance_sz - self.cfg.exemplar_sz))
+        #print('self.cfg.total_stride + 1', self.cfg.total_stride + 1)
+        #print('self.response_sz', self.response_sz)
+        self.anchors = self.gen_anchors() #_create_anchors(self.response_sz)
 
         # create hanning window
         self.hann_window = np.outer(
@@ -249,17 +255,18 @@ class TrackerSiamRPN(Tracker):
                 instance_image, self.kernel_reg, self.kernel_cls)
 
         # offsets
-        #print('out_reg', out_reg.shape)
-        #print('out_cls', out_cls.shape)
-        #offsets = out_reg.permute(1, 2, 3, 0).contiguous().view(4, -1).cpu().numpy()
-        offsets = out_reg.permute(1,2,3,0).reshape(4, -1).cpu().numpy()
+        print('out_reg', out_reg.shape)
+        print('out_cls', out_cls.shape)
+        offsets = out_reg.permute(1, 2, 3, 0).contiguous().view(4, -1).cpu().numpy()
+        print('offsets', offsets.shape)
+        #offsets = out_reg.permute(1,2,3,0).reshape(4, -1).cpu().numpy()
         offsets[0] = offsets[0] * self.anchors[:, 2] + self.anchors[:, 0]
         offsets[1] = offsets[1] * self.anchors[:, 3] + self.anchors[:, 1]
-        #print('np.exp(offsets[2])', np.exp(offsets[2]), offsets[2])
-        #print('self.anchors[:, 2]', self.anchors[:, 2])
+        print('np.exp(offsets[2])', np.exp(offsets[2]), offsets[2])
+        print('self.anchors[:, 2]', self.anchors[:, 2])
         offsets[2] = np.exp(offsets[2]) * self.anchors[:, 2] # *0.01
         offsets[3] = np.exp(offsets[3]) * self.anchors[:, 3]
-        #print('offsets', offsets.shape)
+        print('offsets', offsets.shape)
 
 
         # scale and ratio penalty
@@ -377,3 +384,48 @@ class TrackerSiamRPN(Tracker):
         patch = cv2.resize(patch, (out_size, out_size))
 
         return patch
+
+
+    def gen_single_anchor(self):
+        scale = np.array(self.scale, dtype = np.float32)
+        s = self.base * self.base
+        w, h = np.sqrt(s/scale), np.sqrt(s*scale)
+        c_x, c_y = (self.stride-1)//2, (self.stride-1)//2
+        anchor = np.vstack([c_x*np.ones_like(scale, dtype=np.float32), c_y*np.ones_like(scale, dtype=np.float32), w, h]).transpose()
+        anchor = self.center_to_corner(anchor)
+        # print('anchor', anchor.shape)
+        return anchor
+
+    def gen_anchors(self):
+        print("affvsdfvsdfvdfs")
+        anchor=self.gen_single_anchor()
+        k = anchor.shape[0]
+        delta_x, delta_y = [x*self.stride for x in range(self.w)], [y*self.stride for y in range(self.h)]
+        shift_x, shift_y = np.meshgrid(delta_x, delta_y)
+        shifts = np.vstack([shift_x.ravel(), shift_y.ravel(), shift_x.ravel(), shift_y.ravel()]).transpose()
+        a = shifts.shape[0]
+        anchors = (anchor.reshape((1,k,4))+shifts.reshape((a,1,4))).reshape((a*k, 4)) # corner format
+        anchors = self.corner_to_center(anchors)
+        # print('anchors', anchors)
+        # print('anchors.shape', anchors.shape)
+        return anchors
+
+    def center_to_corner(self, box):
+        box = box.copy()
+        box_ = np.zeros_like(box, dtype = np.float32)
+        box_[:,0]=box[:,0]-(box[:,2]-1)/2
+        box_[:,1]=box[:,1]-(box[:,3]-1)/2
+        box_[:,2]=box[:,0]+(box[:,2]-1)/2
+        box_[:,3]=box[:,1]+(box[:,3]-1)/2
+        box_ = box_.astype(np.float32)
+        return box_
+
+    def corner_to_center(self, box):
+        box = box.copy()
+        box_ = np.zeros_like(box, dtype = np.float32)
+        box_[:,0]=box[:,0]+(box[:,2]-box[:,0])/2
+        box_[:,1]=box[:,1]+(box[:,3]-box[:,1])/2
+        box_[:,2]=(box[:,2]-box[:,0])
+        box_[:,3]=(box[:,3]-box[:,1])
+        box_ = box_.astype(np.float32)
+        return box_
