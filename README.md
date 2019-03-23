@@ -73,12 +73,30 @@ You do not need to change anything yourself, the fixed.py script will do it for 
 ## My contacts
 
 E-mail: arbi.tularov@yandex.ru
+
 WeChat: tularov_arbi
 
 <center>
     <figure>
-        <img src="img/WeChat.jpg" height="60%" width="60%">
+        <img src="img/WeChat.jpg" height="30%" width="30%">
         <figcaption>
         </figcaption>
     </figure>
 </center>
+
+## Authors
+
+* `Bo Li` - paper - [Siamese-RPN](http://openaccess.thecvf.com/content_cvpr_2018/papers/Li_High_Performance_Visual_CVPR_2018_paper.pdf)
+* `De jiasong` - code - [Siamese-RPN-pytorch](https://github.com/songdejia/Siamese-RPN-pytorch)
+* `Makalo` - paper - [Siamese-RPN-tensorflow](https://github.com/makalo/Siamese-RPN-tensorflow)
+
+## Citation
+```
+Paper: @InProceedings{Li_2018_CVPR,
+author = {Li, Bo and Yan, Junjie and Wu, Wei and Zhu, Zheng and Hu, Xiaolin},
+title = {High Performance Visual Tracking With Siamese Region Proposal Network},
+booktitle = {The IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+month = {June},
+year = {2018}
+}
+```
