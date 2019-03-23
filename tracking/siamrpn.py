@@ -259,19 +259,22 @@ class TrackerSiamRPN(Tracker):
             box[0] - 1 + (box[2] - 1) / 2,
             box[3], box[2]], dtype=np.float32)
         self.center, self.target_sz = box[:2], box[2:]
-        '''
+
+        print('self.center', self.center)
+        print('self.target_sz', self.target_sz)
+
         # for small target, use larger search region
-        if np.prod(self.target_sz) / np.prod(image.shape[:2]) < 0.004:
+        if np.prod(self.target_sz) / np.prod(imageX.shape[:2]) < 0.004:
             self.cfg = self.cfg._replace(instance_sz=287)
 
         # generate anchors
         self.response_sz = (self.cfg.instance_sz - self.cfg.exemplar_sz) // self.cfg.total_stride + 1 #19
-        #print('(self.cfg.instance_sz - self.cfg.exemplar_sz)', (self.cfg.instance_sz - self.cfg.exemplar_sz))
-        #print('self.cfg.total_stride + 1', self.cfg.total_stride + 1)
-        #print('self.response_sz', self.response_sz)
-        self.anchors = self.gen_anchors() #_create_anchors(self.response_sz)
-        '''
-        self.response_sz = (self.cfg.instance_sz - self.cfg.exemplar_sz) // self.cfg.total_stride + 1 #19
+
+        self.anchors = self._create_anchors(self.response_sz)
+        #self.anchors = self.gen_anchors()
+        print('self.anchors', self.anchors)
+        print('self.anchors.shape', self.anchors.shape)
+
         # create hanning window
         self.hann_window = np.outer(
             np.hanning(self.response_sz),
@@ -280,22 +283,31 @@ class TrackerSiamRPN(Tracker):
             self.hann_window.flatten(),
             len(self.cfg.ratios) * len(self.cfg.scales))
 
+        print('self.hann_window', self.hann_window)
+
         # exemplar and search sizes
         context = self.cfg.context * np.sum(self.target_sz)
+        print('context', context)
         self.z_sz = np.sqrt(np.prod(self.target_sz + context))
+        print('self.z_sz', self.z_sz)
         self.x_sz = self.z_sz * \
             self.cfg.instance_sz / self.cfg.exemplar_sz
 
+        print('self.x_sz', self.x_sz)
+
         # exemplar image
         self.avg_color = np.mean(imageX, axis=(0, 1)) # это оставить
+        print('self.avg_color', self.avg_color)
 
-        '''print('self.avg_color', self.avg_color)
+        #print('self.avg_color', self.avg_color)
         exemplar_image = self._crop_and_resize(
-            image, self.center, self.z_sz,
+            imageX, self.center, self.z_sz,
             self.cfg.exemplar_sz, self.avg_color)
 
+
+
         # classification and regression kernels
-        exemplar_image = torch.from_numpy(exemplar_image).to(
+        '''exemplar_image = torch.from_numpy(exemplar_image).to(
             self.device).permute([2, 0, 1]).unsqueeze(0).float()
         #print('exemplar_image', exemplar_image.shape)
         with torch.set_grad_enabled(False):
@@ -303,23 +315,25 @@ class TrackerSiamRPN(Tracker):
             self.kernel_reg, self.kernel_cls = self.net.learn(self.ret['template_tensor'])'''
 
     def update(self, detection):
-        #image = np.asarray(image)
+        detectionX = np.asarray(detection)
         detection
 
-        ret, self.anchors = self.data_loader.__get__(self.image, self.box, detection)
+        ret, self.anchors_not = self.data_loader.__get__(self.image, self.box, detection)
         template     = ret['template_tensor']#.cuda()
         detection    = ret['detection_tensor']#.cuda()
 
-        '''# search image
+        # search image
         instance_image = self._crop_and_resize(
-            image, self.center, self.x_sz,
+            detectionX, self.center, self.x_sz,
             self.cfg.instance_sz, self.avg_color)
 
         # classification and regression outputs
         instance_image = torch.from_numpy(instance_image).to(
             self.device).permute(2, 0, 1).unsqueeze(0).float()
 
-        #print('instance_image', instance_image.shape)'''
+        print('instance_image', instance_image.shape)
+
+        #print('instance_image', instance_image.shape)
 
         with torch.set_grad_enabled(False):
             self.net.eval()
@@ -342,26 +356,35 @@ class TrackerSiamRPN(Tracker):
 
         # scale and ratio penalty
         penalty = self._create_penalty(self.target_sz, offsets)
+        print('penaltye', penalty)
 
         # response
         response = F.softmax(out_cls.permute(
             1, 2, 3, 0).contiguous().view(2, -1), dim=0).data[1].cpu().numpy()
+        
         response = response * penalty
         response = (1 - self.cfg.window_influence) * response + \
             self.cfg.window_influence * self.hann_window
 
+        print('response', response)
+
         # peak location
         best_id = np.argmax(response)
+        print('best_id', best_id)
+
         offset = offsets[:, best_id] * self.z_sz / self.cfg.exemplar_sz
+        print('offset', offset)
 
         # update center
         self.center += offset[:2][::-1]
         self.center = np.clip(self.center, 0, detection.shape[:2])
+        print('update center self.cente', self.center)
 
         # update scale
         lr = response[best_id] * self.cfg.lr
         self.target_sz = (1 - lr) * self.target_sz + lr * offset[2:][::-1]
         self.target_sz = np.clip(self.target_sz, 10, detection.shape[:2])
+        print('update center self.target_sz', self.target_sz)
 
         # update exemplar and instance sizes
         context = self.cfg.context * np.sum(self.target_sz)
@@ -369,12 +392,15 @@ class TrackerSiamRPN(Tracker):
         self.x_sz = self.z_sz * \
             self.cfg.instance_sz / self.cfg.exemplar_sz
 
+        print('update exemplar and instance sizes self.z_sz', self.z_sz)
+        print('update exemplar and instance sizes self.x_sz', self.x_sz)
+
         # return 1-indexed and left-top based bounding box
         box = np.array([
             self.center[1] + 1 - (self.target_sz[1] - 1) / 2,
             self.center[0] + 1 - (self.target_sz[0] - 1) / 2,
             self.target_sz[1], self.target_sz[0]])
-        print('box', box)
+        print('box', box, '\n')
 
         return box
 

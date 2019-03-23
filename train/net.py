@@ -183,6 +183,7 @@ class TrackerSiamRPN(Tracker):
         '''setup model'''
         #self.net = SiameseRPN()
         self.net = SiamRPN()
+        self.net = self.net.cuda()
 
         if net_path is not None:
             self.net.load_state_dict(torch.load(
@@ -208,19 +209,19 @@ class TrackerSiamRPN(Tracker):
 
         cur_lr = adjust_learning_rate(self.params["lr"], self.optimizer, epoch, gamma=0.1)
 
-        template     = ret['template_tensor']#.cuda()
-        detection    = ret['detection_tensor']#.cuda()
+        template     = ret['template_tensor'].cuda()
+        detection    = ret['detection_tensor'].cuda()
         #print('template', template.shape)
         #print('detection', detection.shape)
-        pos_neg_diff = ret['pos_neg_diff_tensor']#.cuda()
+        pos_neg_diff = ret['pos_neg_diff_tensor'].cuda()
         #print('pos_neg_diff', pos_neg_diff.shape)
 
         rout, cout   = self.net(template, detection)
         #print('rout', rout.shape)
         #print('cout', cout.shape)
         offsets = rout.permute(1, 2, 3, 0).contiguous().view(4, -1).cpu().detach().numpy()
-        print('offsets', offsets.shape)
-        print('np.exp(offsets[2])', np.exp(offsets[2]), offsets[2])
+        #print('offsets', offsets.shape)
+        #print('np.exp(offsets[2])', np.exp(offsets[2]), offsets[2])
         #print('self.anchors[:, 2]', self.anchors[:, 2])
         cout  = cout.squeeze().permute(1,2,0).reshape(-1, 2)
         rout  = rout.squeeze().permute(1,2,0).reshape(-1, 4)

@@ -74,15 +74,15 @@ class Anchor_ms_Old(object):
         ys = np.tile(ys.flatten(), (anchor_num, 1)).flatten()
         anchors[:, 0] = xs.astype(np.float32)
         anchors[:, 1] = ys.astype(np.float32)
-        print('anchors', anchors)
-        print('anchors.shape', anchors.shape)
+        #print('anchors', anchors)
+        #print('anchors.shape', anchors.shape)
         return anchors
 
     # float
     def diff_anchor_gt(self, gt):
         eps = self.eps
         anchors, gt = self.anchors.copy(), gt.copy()
-        print('gt', gt)
+        #print('gt', gt)
         diff = np.zeros_like(anchors, dtype = np.float32)
         diff[:,0] = (gt[0] - anchors[:,0])/(anchors[:,2] + eps)
         diff[:,1] = (gt[1] - anchors[:,1])/(anchors[:,3] + eps)
@@ -191,7 +191,7 @@ class Anchor_ms(object):
     def diff_anchor_gt(self, gt):
         eps = self.eps
         anchors, gt = self.anchors.copy(), gt.copy()
-        print('gt', gt)
+        #print('gt', gt)
         diff = np.zeros_like(anchors, dtype = np.float32)
         diff[:,0] = (gt[0] - anchors[:,0])/(anchors[:,2] + eps)
         diff[:,1] = (gt[1] - anchors[:,1])/(anchors[:,3] + eps)
@@ -310,9 +310,9 @@ class TrainDataLoader(object):
                 self.max_inter = sub_class_img_num//2
 
             template_index = np.clip(random.choice(range(0, max(1, sub_class_img_num - self.max_inter))), 0, sub_class_img_num-1)
-            print('template_index', template_index)
+            #print('template_index', template_index)
             detection_index= np.clip(random.choice(range(1, max(2, self.max_inter))) + template_index, 0, sub_class_img_num-1)
-            print('detection_index', detection_index)
+            #print('detection_index', detection_index)
 
 
             template_name, detection_name  = sub_class_img_name[template_index], sub_class_img_name[detection_index]
