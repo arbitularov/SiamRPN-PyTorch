@@ -100,7 +100,7 @@ def main():
             tlosses.update(loss.cpu().item())
             steps+=1
 
-            if example % 10000 == 0:
+            if example % 1000 == 0:
                 print("Epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1), steps, args.max_batches, 100*(steps)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
 
 

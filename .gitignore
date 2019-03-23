@@ -9,3 +9,4 @@ model_e3.pth
 model_e4.pth
 weights-000.pth.tar
 test
+model.pth

@@ -152,17 +152,17 @@ class SiamRPN(nn.Module):
         self.feature = nn.Sequential(
             # conv1
             nn.Conv2d(3, 192, 11, 2),
-            #nn.BatchNorm2d(192),
+            nn.BatchNorm2d(192),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(3, 2),
             # conv2
             nn.Conv2d(192, 512, 5, 1),
-            #nn.BatchNorm2d(512),
+            nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(3, 2),
             # conv3
             nn.Conv2d(512, 768, 3, 1),
-            #nn.BatchNorm2d(768),
+            nn.BatchNorm2d(768),
             nn.ReLU(inplace=True),
             # conv4
             nn.Conv2d(768, 768, 3, 1),
@@ -238,7 +238,7 @@ class TrackerSiamRPN(Tracker):
             'scales': [8,],
             'penalty_k': 0.055,
             'window_influence': 0.42,
-            'lr': 0.295
+            'lr': 0.245
             }
 
         for key, val in kargs.items():
@@ -319,8 +319,8 @@ class TrackerSiamRPN(Tracker):
         detection
 
         ret, self.anchors_not = self.data_loader.__get__(self.image, self.box, detection)
-        template     = ret['template_tensor']#.cuda()
-        detection    = ret['detection_tensor']#.cuda()
+        template_tensor     = ret['template_tensor']#.cuda()
+        detection_tensor    = ret['detection_tensor']#.cuda()
 
         # search image
         instance_image = self._crop_and_resize(
@@ -337,7 +337,7 @@ class TrackerSiamRPN(Tracker):
 
         with torch.set_grad_enabled(False):
             self.net.eval()
-            out_reg, out_cls = self.net(template, detection)
+            out_reg, out_cls = self.net(template_tensor, detection_tensor)
 
         # offsets
         print('out_reg', out_reg.shape)
@@ -361,7 +361,7 @@ class TrackerSiamRPN(Tracker):
         # response
         response = F.softmax(out_cls.permute(
             1, 2, 3, 0).contiguous().view(2, -1), dim=0).data[1].cpu().numpy()
-        
+
         response = response * penalty
         response = (1 - self.cfg.window_influence) * response + \
             self.cfg.window_influence * self.hann_window
@@ -377,13 +377,13 @@ class TrackerSiamRPN(Tracker):
 
         # update center
         self.center += offset[:2][::-1]
-        self.center = np.clip(self.center, 0, detection.shape[:2])
+        self.center = np.clip(self.center, 0, detectionX.shape[:2])
         print('update center self.cente', self.center)
 
         # update scale
         lr = response[best_id] * self.cfg.lr
         self.target_sz = (1 - lr) * self.target_sz + lr * offset[2:][::-1]
-        self.target_sz = np.clip(self.target_sz, 10, detection.shape[:2])
+        self.target_sz = np.clip(self.target_sz, 10, detectionX.shape[:2])
         print('update center self.target_sz', self.target_sz)
 
         # update exemplar and instance sizes
