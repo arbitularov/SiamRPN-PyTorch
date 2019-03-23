@@ -27,7 +27,7 @@ python3 train_siamrpn.py --train_path=/path/to/dataset/GOT-10k/train
 pip3 install shapely
 ```
 
-## How to fix GOT-10k dataset 
+## How to fix GOT-10k dataset
 
 <center>
     <figure>
@@ -39,8 +39,8 @@ pip3 install shapely
 
 1. First you need to delete four videos:
 ```
-GOT-10k_Train_008628 
-GOT-10k_Train_008630 
+GOT-10k_Train_008628
+GOT-10k_Train_008630
 GOT-10k_Train_009058  
 GOT-10k_Train_009059
 ```
@@ -58,7 +58,7 @@ python3 fixed.py --dataset_path=/path/to/dataset/GOT-10k/train
     </figure>
 </center>
 
-After you have new_file.txt file. In this file a lot of information about where the error. 
+After you have new_file.txt file. In this file a lot of information about where the error.
 
 <center>
     <figure>
@@ -69,3 +69,16 @@ After you have new_file.txt file. In this file a lot of information about where 
 </center>
 
 You do not need to change anything yourself, the fixed.py script will do it for you.
+
+## My contacts
+
+E-mail: arbi.tularov@yandex.ru
+WeChat: tularov_arbi
+
+<center>
+    <figure>
+        <img src="img/WeChat.jpg" height="60%" width="60%">
+        <figcaption>
+        </figcaption>
+    </figure>
+</center>
