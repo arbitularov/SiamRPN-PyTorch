@@ -88,7 +88,7 @@ WeChat: tularov_arbi
 
 * `Bo Li` - paper - [Siamese-RPN](http://openaccess.thecvf.com/content_cvpr_2018/papers/Li_High_Performance_Visual_CVPR_2018_paper.pdf)
 * `De jiasong` - code - [Siamese-RPN-pytorch](https://github.com/songdejia/Siamese-RPN-pytorch)
-* `Makalo` - paper - [Siamese-RPN-tensorflow](https://github.com/makalo/Siamese-RPN-tensorflow)
+* `Makalo` - code - [Siamese-RPN-tensorflow](https://github.com/makalo/Siamese-RPN-tensorflow)
 
 ## Citation
 ```
