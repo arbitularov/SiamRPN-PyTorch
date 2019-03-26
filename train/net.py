@@ -1,17 +1,11 @@
 # -*- coding: utf-8 -*-
-# @Author: Song Dejia
-# @Date:   2018-11-05 11:16:24
-# @Last Modified by:   Song Dejia
-# @Last Modified time: 2018-11-23 15:44:42
-import torch.utils.model_zoo as model_zoo
+
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-import time
 import numpy as np
 import cv2
 import random
-#from PIL import Image, ImageOps, ImageStat, ImageDraw
 
 from got10k.trackers import Tracker
 
@@ -133,7 +127,6 @@ class SiamRPN(nn.Module):
 
         return out_reg, out_cls
 
-
 class TrackerSiamRPN(Tracker):
 
     def __init__(self, params, seq_dataset, net_path=None, **kargs):
@@ -152,7 +145,7 @@ class TrackerSiamRPN(Tracker):
         self.params   = params
 
         '''setup model'''
-        self.net = SiamRPN()
+        self.net = SiamRPNOLD()
         #self.net = self.net.cuda()
 
         if net_path is not None:
@@ -169,13 +162,10 @@ class TrackerSiamRPN(Tracker):
             momentum     = self.params["momentum"],
             weight_decay = self.params["weight_decay"])
 
-    def step(self, data_loader, epoch, a, backward=True, update_lr=False):
+    def step(self, data_loader, epoch, backward=True):
 
-        ret = data_loader.__get__(a)
         if backward:
             self.net.train()
-            if update_lr:
-                print(self.lr_scheduler.step())
         else:
             self.net.eval()
 
@@ -258,6 +248,8 @@ class TrackerSiamRPN(Tracker):
                 self.video = random.choice(index_video)
                 self.frame = 0
 
+        ret = data_loader.__get__( self.template_box)#self.detection_box)
+
         cur_lr = adjust_learning_rate(self.params["lr"], self.optimizer, epoch, gamma=0.1)
 
         #template     = ret['template_tensor']#.cuda()
@@ -284,7 +276,6 @@ class TrackerSiamRPN(Tracker):
             self.optimizer.step()
 
         return closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr #loss.item()
-
 
     def _crop_and_resize(self, image, center, size, out_size, pad_color):
         # convert box to corners (0-indexed)
@@ -327,6 +318,8 @@ class MultiBoxLoss(nn.Module):
 
         """ class """
         class_pred, class_target = cout, targets[:, 0].long()
+        #print('class_target', class_target)
+
         pos_index , neg_index    = list(np.where(class_target.cpu() == 1)[0]), list(np.where(class_target.cpu() == 0)[0])
         pos_num, neg_num         = len(pos_index), len(neg_index)
         class_pred, class_target = class_pred[pos_index + neg_index], class_target[pos_index + neg_index]
@@ -336,10 +329,21 @@ class MultiBoxLoss(nn.Module):
 
         """ regression """
         reg_pred = rout
+        #print('reg_pred', reg_pred)
         reg_target = targets[:, 1:]
+        #print('reg_target', reg_target)
+
         rloss = F.smooth_l1_loss(reg_pred, reg_target, reduction='none') #1445, 4
+        #print('rloss1', rloss)
         rloss = torch.div(torch.sum(rloss, dim = 1), 4)
+        #print('rloss2', rloss)
+        #print('pos_index', pos_index)
+
+        #print('torch.sum(rloss[pos_index])', torch.sum(rloss[pos_index]))
+
         rloss = torch.div(torch.sum(rloss[pos_index]), 16)
+        #print('rloss3', rloss)
+
 
         loss = closs + rloss
         return closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index

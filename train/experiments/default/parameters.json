@@ -2,7 +2,7 @@
     "template_img_size": 127,
     "detection_img_size": 271,
     "stride": 8,
-    "lr": 0.0001,
+    "lr": 0.001,
     "epoches": 200,
     "weight_decay": 0.00005,
     "momentum": 0.9,

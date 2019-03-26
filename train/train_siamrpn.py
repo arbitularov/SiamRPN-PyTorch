@@ -1,32 +1,15 @@
 # -*- coding: utf-8 -*-
-
-# @Author: Song Dejia
-# @Date:   2018-11-09 10:06:59
-
-# @Last Modified by:   Arbi Tularov
-# @Last Modified time: 2019-02-23 12:56:23
-
 import os
-import os.path as osp
-import random
-import time
-import sys; sys.path.append('../')
-import torch
-import torch.nn as nn
-import numpy as np
-import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.nn.functional as F
-import argparse
-from PIL import Image, ImageOps, ImageStat, ImageDraw
-from data_loader import TrainDataLoader
-from net import TrackerSiamRPN
-from torch.nn import init
-from shapely.geometry import Polygon
 import json
-from got10k.datasets import ImageNetVID, GOT10k
-
+import random
+import argparse
+import numpy as np
 from tqdm import tqdm
+from torch.nn import init
+from net import TrackerSiamRPN
+import torch.backends.cudnn as cudnn
+from data_loader import TrainDataLoader
+from got10k.datasets import ImageNetVID, GOT10k
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
@@ -35,10 +18,9 @@ parser.add_argument('--experiment_name', default='default', metavar='DIR',help='
 parser.add_argument('--checkpoint_path', default='../model.pth', help='resume')
 parser.add_argument('--max_batches', default=0, type=int, metavar='N', help='number of batch in one epoch')
 
-
 def main():
-
-    # setup dataset
+    
+    '''setup dataset'''
     name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k']
     if name == 'GOT-10k':
@@ -49,8 +31,8 @@ def main():
         seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
     #pair_dataset = Pairwise(seq_dataset)
 
+    '''setup data loader'''
     '''
-    # setup data loader
     cuda = torch.cuda.is_available()
     loader = DataLoader(
         pair_dataset, batch_size=8, shuffle=True,
@@ -87,10 +69,7 @@ def main():
         assert os.path.isfile(args.checkpoint_path), '{} is not valid checkpoint_path'.format(args.checkpoint_path)
         try:
             model.net.load_state_dict(torch.load(args.checkpoint_path, map_location=lambda storage, loc: storage))
-            '''checkpoint = torch.load(args.checkpoint_path)
-            start = checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])'''
+
             start = 0
             print('ldcdlmcdlmcdlm')
         except:
@@ -103,13 +82,10 @@ def main():
     closses, rlosses, tlosses = AverageMeter(), AverageMeter(), AverageMeter()
     steps = 0
     for epoch in range(start, params['epoches']):
-        #cur_lr = adjust_learning_rate(params["lr"], optimizer, epoch, gamma=0.1)
-        index_list = range(data_loader.__len__())
 
-        for example in tqdm(range(1000)): # args.max_batches
-            a = random.choice(index_list)
+        for example in tqdm(range(100)): # args.max_batches
 
-            closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr = model.step(data_loader, epoch, a, backward=True)
+            closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr = model.step(data_loader, epoch, backward=True)
 
             closs_ = closs.cpu().item()
 
