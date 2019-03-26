@@ -263,12 +263,12 @@ class Anchor_ms(object):
 class TrainDataLoader(object):
     def __init__(self, params, out_feature = 19, max_inter = 80):
 
-        self.anchor_generator = Anchor_ms(out_feature, out_feature)
+        self.anchor_generator = Anchor_ms_Old(out_feature, out_feature, params)
         #self.img_dir_path = img_dir_path # this is a root dir contain subclass
         self.max_inter = max_inter
         #self.sub_class_dir = [sub_class_dir for sub_class_dir in os.listdir(img_dir_path) if os.path.isdir(os.path.join(img_dir_path, sub_class_dir))]
-        self.anchors = self.anchor_generator.gen_anchors() #centor
-        #self.anchors = self.anchor_generator.create_anchors(params) #centor
+        #self.anchors = self.anchor_generator.gen_anchors() #centor
+        self.anchors = self.anchor_generator.create_anchors(params) #centor
         self.ret = {}
         self.count = 0
         self.params = params
@@ -342,7 +342,13 @@ class TrainDataLoader(object):
     def _pad_crop_resize(self, image, box, detection):
         #print('self.ret[template_img_path]', self.ret['template_img_path'])
         #print('self.ret[detection_img_path]', self.ret['detection_img_path'])
+        #image = np.asarray(image)
+        #detection = np.asarray(detection)
         template_img, detection_img = image, detection
+        print('image', image.size)
+        print('type(image', type(image))
+        print('detection', detection.size)
+        print('type(detection', type(detection))
 
         w, h = template_img.size
         cx, cy, tw, th = box[0], box[1], box[2], box[3]
@@ -420,33 +426,6 @@ class TrainDataLoader(object):
         self.ret['target_in_resized_detection_xywh']     = np.array((cx, cy, w,  h) , dtype = np.int32)
         self.ret['area_target_in_resized_detection'] = w * h'''
 
-    def _generate_pos_neg_diff(self):
-        gt_box_in_detection = self.ret['target_in_resized_detection_xywh'].copy()
-        pos, neg = self.anchor_generator.pos_neg_anchor(gt_box_in_detection)
-        diff     = self.anchor_generator.diff_anchor_gt(gt_box_in_detection)
-        pos, neg, diff = pos.reshape((-1, 1)), neg.reshape((-1,1)), diff.reshape((-1, 4))
-        class_target = np.array([-100.] * self.anchors.shape[0], np.int32)
-
-        # pos
-        pos_index = np.where(pos == 1)[0]
-        pos_num = len(pos_index)
-        self.ret['pos_anchors'] = np.array(self.ret['anchors'][pos_index, :], dtype=np.int32) if not pos_num == 0 else None
-        if pos_num > 0:
-            class_target[pos_index] = 1
-
-        # neg
-        neg_index = np.where(neg == 1)[0]
-        neg_num = len(neg_index)
-        class_target[neg_index] = 0
-
-        # draw pos and neg anchor box
-
-
-        class_logits = class_target.reshape(-1, 1)
-        pos_neg_diff = np.hstack((class_logits, diff))
-        self.ret['pos_neg_diff'] = pos_neg_diff
-        return pos_neg_diff
-
     def _tranform(self):
         """PIL to Tensor"""
         template_pil = self.ret['template_cropped_resized'].copy()
@@ -463,7 +442,6 @@ class TrainDataLoader(object):
     def __get__(self, image, box, detection):
         self._average(image, detection)
         self._pad_crop_resize(image, box, detection)
-        #self._generate_pos_neg_diff()
         self._tranform()
         self.count += 1
         return self.ret, self.anchors

@@ -9,141 +9,6 @@ from collections import namedtuple
 from got10k.trackers import Tracker
 from data_loader import TrainDataLoader
 
-class SiameseRPN(nn.Module):
-
-    def __init__(self, test_video=False):
-        super(SiameseRPN, self).__init__()
-        self.features = nn.Sequential(                  #1, 3, 256, 256
-            #conv1
-            nn.Conv2d(3, 64, kernel_size=11, stride=2), #1, 64,123, 123
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),      #1, 64, 60,  60
-            #conv2
-            nn.Conv2d(64, 192, kernel_size=5),          #1,192, 56,  56
-            nn.BatchNorm2d(192),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),      #1,192, 27,  27
-            #conv3
-            nn.Conv2d(192, 384, kernel_size=3),         #1,384, 25,  25
-            nn.BatchNorm2d(384),
-            nn.ReLU(inplace=True),
-            #conv4
-            nn.Conv2d(384, 256, kernel_size=3),         #1,256, 23,  23
-            #nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            #conv5
-            nn.Conv2d(256, 256, kernel_size=3),         #1,256, 21,  21
-            #nn.BatchNorm2d(256)
-        )
-
-        self.k = 5
-        self.s = 4
-        self.conv1 = nn.Conv2d(256, 2*self.k*256, kernel_size=3)
-        self.relu1 = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(256, 4*self.k*256, kernel_size=3)
-        self.relu2 = nn.ReLU(inplace=True)
-        self.conv3 = nn.Conv2d(256, 256, kernel_size=3)
-        self.relu3 = nn.ReLU(inplace=True)
-        self.conv4 = nn.Conv2d(256, 256, kernel_size=3)
-        self.relu4 = nn.ReLU(inplace=True)
-
-        self.cconv = nn.Conv2d(256, 2* self.k, kernel_size = 4, bias = False)
-        self.rconv = nn.Conv2d(256, 4* self.k, kernel_size = 4, bias = False)
-
-        #self.reset_params() # we will not reset parameter
-
-    def reset_params(self):
-        pretrained_dict = model_zoo.load_url(model_urls['alexnet'])
-        model_dict = self.state_dict()
-        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-        model_dict.update(pretrained_dict)
-        self.load_state_dict(model_dict)
-        print('Load Alexnet models Done' )
-
-    def forward(self, template, detection):
-        template = self.features(template)
-        detection = self.features(detection)
-
-        ckernal = self.conv1(template)
-        ckernal = ckernal.view(2* self.k, 256, 4, 4)
-        cinput  = self.conv3(detection)
-
-
-        rkernal = self.conv2(template)
-        rkernal = rkernal.view(4* self.k, 256, 4, 4)
-        rinput  = self.conv4(detection)
-
-        coutput = F.conv2d(cinput, ckernal)
-        routput = F.conv2d(rinput, rkernal)
-
-        #coutput = coutput.squeeze().permute(1,2,0).reshape(-1, 2)
-        #routput = routput.squeeze().permute(1,2,0).reshape(-1, 4)
-        return routput, coutput
-
-    def resume(self, weight):
-        checkpoint = torch.load(weight)
-        self.load_state_dict(checkpoint)
-        print('Resume checkpoint from {}'.format(weight))
-
-class SiamRPN_OLD(nn.Module):
-
-    def __init__(self, anchor_num=5):
-        super(SiamRPN, self).__init__()
-        self.anchor_num = anchor_num
-        self.feature = nn.Sequential(
-            # conv1
-            nn.Conv2d(3, 192, 11, 2),
-            #nn.BatchNorm2d(192),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(3, 2),
-            # conv2
-            nn.Conv2d(192, 512, 5, 1),
-            #nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(3, 2),
-            # conv3
-            nn.Conv2d(512, 768, 3, 1),
-            #nn.BatchNorm2d(768),
-            nn.ReLU(inplace=True),
-            # conv4
-            nn.Conv2d(768, 768, 3, 1),
-            #nn.BatchNorm2d(768),
-            nn.ReLU(inplace=True),
-            # conv5
-            nn.Conv2d(768, 512, 3, 1))
-            #nn.BatchNorm2d(512))
-
-        self.conv_reg_z = nn.Conv2d(512, 512 * 4 * anchor_num, 3, 1)
-        self.conv_reg_x = nn.Conv2d(512, 512, 3)
-        self.conv_cls_z = nn.Conv2d(512, 512 * 2 * anchor_num, 3, 1)
-        self.conv_cls_x = nn.Conv2d(512, 512, 3)
-        self.adjust_reg = nn.Conv2d(4 * anchor_num, 4 * anchor_num, 1)
-
-    def forward(self, z, x):
-        return self.inference(x, *self.learn(z))
-
-    def learn(self, z):
-        z = self.feature(z)
-        kernel_reg = self.conv_reg_z(z)
-        kernel_cls = self.conv_cls_z(z)
-
-        k = kernel_reg.size()[-1]
-        kernel_reg = kernel_reg.view(4 * self.anchor_num, 512, k, k)
-        kernel_cls = kernel_cls.view(2 * self.anchor_num, 512, k, k)
-
-        return kernel_reg, kernel_cls
-
-    def inference(self, x, kernel_reg, kernel_cls):
-        x = self.feature(x)
-        x_reg = self.conv_reg_x(x)
-        x_cls = self.conv_cls_x(x)
-
-        out_reg = self.adjust_reg(F.conv2d(x_reg, kernel_reg))
-        out_cls = F.conv2d(x_cls, kernel_cls)
-
-        return out_reg, out_cls
-
 class SiamRPN(nn.Module):
 
     def __init__(self, anchor_num=5):
@@ -166,11 +31,11 @@ class SiamRPN(nn.Module):
             nn.ReLU(inplace=True),
             # conv4
             nn.Conv2d(768, 768, 3, 1),
-            #nn.BatchNorm2d(768),
+            nn.BatchNorm2d(768),
             nn.ReLU(inplace=True),
             # conv5
-            nn.Conv2d(768, 512, 3, 1))
-            #nn.BatchNorm2d(512))
+            nn.Conv2d(768, 512, 3, 1),
+            nn.BatchNorm2d(512))
 
         self.conv_reg_z = nn.Conv2d(512, 512 * 4 * anchor_num, 3, 1)
         self.conv_reg_x = nn.Conv2d(512, 512, 3)
@@ -218,8 +83,7 @@ class TrackerSiamRPN(Tracker):
         self.net = SiamRPN()
 
         if net_path is not None:
-            self.net.load_state_dict(torch.load(
-                net_path, map_location=lambda storage, loc: storage))
+            self.net.load_state_dict(torch.load(net_path, map_location=lambda storage, loc: storage))
         self.net = self.net.to(self.device)
 
         self.w      = 19
@@ -272,7 +136,7 @@ class TrackerSiamRPN(Tracker):
 
         self.anchors = self._create_anchors(self.response_sz)
         #self.anchors = self.gen_anchors()
-        print('self.anchors', self.anchors)
+        #print('self.anchors', self.anchors)
         print('self.anchors.shape', self.anchors.shape)
 
         # create hanning window
@@ -283,7 +147,7 @@ class TrackerSiamRPN(Tracker):
             self.hann_window.flatten(),
             len(self.cfg.ratios) * len(self.cfg.scales))
 
-        print('self.hann_window', self.hann_window)
+        #print('self.hann_window', self.hann_window)
 
         # exemplar and search sizes
         context = self.cfg.context * np.sum(self.target_sz)
@@ -331,13 +195,16 @@ class TrackerSiamRPN(Tracker):
         instance_image = torch.from_numpy(instance_image).to(
             self.device).permute(2, 0, 1).unsqueeze(0).float()
 
-        print('instance_image', instance_image.shape)
+        print('instance_image.shape', instance_image.shape)
+        #print('instance_image', instance_image)
+        print('detection_tensor.shape', detection_tensor.shape)
+        #print('detection_tensor', detection_tensor)
 
         #print('instance_image', instance_image.shape)
 
         with torch.set_grad_enabled(False):
             self.net.eval()
-            out_reg, out_cls = self.net(template_tensor, detection_tensor)
+            out_reg, out_cls = self.net(template_tensor, instance_image)
 
         # offsets
         print('out_reg', out_reg.shape)
@@ -373,7 +240,7 @@ class TrackerSiamRPN(Tracker):
         print('best_id', best_id)
 
         offset = offsets[:, best_id] * self.z_sz / self.cfg.exemplar_sz
-        print('offset', offset)
+        #print('offset', offset)
 
         # update center
         self.center += offset[:2][::-1]
@@ -430,7 +297,7 @@ class TrackerSiamRPN(Tracker):
         ys = np.tile(ys.flatten(), (anchor_num, 1)).flatten()
         anchors[:, 0] = xs.astype(np.float32)
         anchors[:, 1] = ys.astype(np.float32)
-        print('anchors', anchors)
+        #print('anchors', anchors)
         print('anchors.shape', anchors.shape)
         return anchors
 
@@ -468,6 +335,7 @@ class TrackerSiamRPN(Tracker):
         pads = np.concatenate((
             -corners[:2], corners[2:] - image.shape[:2]))
         npad = max(0, int(pads.max()))
+        #npad = 0
         print('npad', npad)
 
         if npad > 0:

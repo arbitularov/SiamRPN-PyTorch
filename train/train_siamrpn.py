@@ -24,6 +24,7 @@ from net import TrackerSiamRPN
 from torch.nn import init
 from shapely.geometry import Polygon
 import json
+from got10k.datasets import ImageNetVID, GOT10k
 
 from tqdm import tqdm
 
@@ -31,11 +32,30 @@ parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
 parser.add_argument('--train_path', default='/Users/arbi/Desktop/val', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--checkpoint_path', default=None, help='resume')
+parser.add_argument('--checkpoint_path', default='../model.pth', help='resume')
 parser.add_argument('--max_batches', default=0, type=int, metavar='N', help='number of batch in one epoch')
 
 
 def main():
+
+    # setup dataset
+    name = 'GOT-10k'
+    assert name in ['VID', 'GOT-10k']
+    if name == 'GOT-10k':
+        root_dir = 'data/GOT-10k'
+        seq_dataset = GOT10k('/Users/arbi/Desktop/', subset='val')
+    elif name == 'VID':
+        root_dir = 'data/ILSVRC'
+        seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
+    #pair_dataset = Pairwise(seq_dataset)
+
+    '''
+    # setup data loader
+    cuda = torch.cuda.is_available()
+    loader = DataLoader(
+        pair_dataset, batch_size=8, shuffle=True,
+        pin_memory=cuda, drop_last=True, num_workers=4)
+    '''
 
     """parameter initialization"""
     args = parser.parse_args()
@@ -57,7 +77,7 @@ def main():
             args.max_batches += len(os.listdir(dir_path))
 
     """ Model on gpu """
-    model = TrackerSiamRPN(params)
+    model = TrackerSiamRPN(params, seq_dataset)
     #model = model.cuda()
     cudnn.benchmark = True
 
@@ -66,10 +86,13 @@ def main():
     if not args.checkpoint_path == None:
         assert os.path.isfile(args.checkpoint_path), '{} is not valid checkpoint_path'.format(args.checkpoint_path)
         try:
-            checkpoint = torch.load(args.checkpoint_path)
+            model.net.load_state_dict(torch.load(args.checkpoint_path, map_location=lambda storage, loc: storage))
+            '''checkpoint = torch.load(args.checkpoint_path)
             start = checkpoint['epoch']
             model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
+            optimizer.load_state_dict(checkpoint['optimizer'])'''
+            start = 0
+            print('ldcdlmcdlmcdlm')
         except:
             start = 0
             init_weights(model)
@@ -82,13 +105,11 @@ def main():
     for epoch in range(start, params['epoches']):
         #cur_lr = adjust_learning_rate(params["lr"], optimizer, epoch, gamma=0.1)
         index_list = range(data_loader.__len__())
-        for example in tqdm(range(10000)): # args.max_batches
+
+        for example in tqdm(range(1000)): # args.max_batches
             a = random.choice(index_list)
-            #print('a', a)
 
-            ret = data_loader.__get__(a)
-
-            closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr = model.step(ret, epoch, backward=True)
+            closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr = model.step(data_loader, epoch, a, backward=True)
 
             closs_ = closs.cpu().item()
 
@@ -100,7 +121,7 @@ def main():
             tlosses.update(loss.cpu().item())
             steps+=1
 
-            if example % 1000 == 0:
+            if example % 10 == 0:
                 print("Epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1), steps, args.max_batches, 100*(steps)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
 
 
