@@ -134,8 +134,8 @@ class TrackerSiamRPN(Tracker):
         # generate anchors
         self.response_sz = (self.cfg.instance_sz - self.cfg.exemplar_sz) // self.cfg.total_stride + 1 #19
 
-        self.anchors = self._create_anchors(self.response_sz)
-        #self.anchors = self.gen_anchors()
+        #self.anchors = self._create_anchors(self.response_sz)
+        self.anchors = self.gen_anchors()
         #print('self.anchors', self.anchors)
         print('self.anchors.shape', self.anchors.shape)
 

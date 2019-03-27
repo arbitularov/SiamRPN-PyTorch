@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import json
+import torch
 import random
 import argparse
 import numpy as np
@@ -15,11 +16,11 @@ parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
 parser.add_argument('--train_path', default='/Users/arbi/Desktop/val', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--checkpoint_path', default='../model.pth', help='resume')
+parser.add_argument('--checkpoint_path', default=None, help='resume')
 parser.add_argument('--max_batches', default=0, type=int, metavar='N', help='number of batch in one epoch')
 
 def main():
-    
+
     '''setup dataset'''
     name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k']
@@ -29,9 +30,20 @@ def main():
     elif name == 'VID':
         root_dir = 'data/ILSVRC'
         seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
-    #pair_dataset = Pairwise(seq_dataset)
+
+    '''parameter initialization'''
+    args = parser.parse_args()
+    exp_name_dir = experiment_name_dir(args.experiment_name)
+
+    '''Load the parameters from json file'''
+    json_path = os.path.join(exp_name_dir, 'parameters.json')
+    assert os.path.isfile(json_path), ("No json configuration file found at {}".format(json_path))
+    with open(json_path) as data_file:
+        params = json.load(data_file)
 
     '''setup data loader'''
+    data_loader = TrainDataLoader(seq_dataset, params)
+
     '''
     cuda = torch.cuda.is_available()
     loader = DataLoader(
@@ -39,47 +51,31 @@ def main():
         pin_memory=cuda, drop_last=True, num_workers=4)
     '''
 
-    """parameter initialization"""
-    args = parser.parse_args()
-    exp_name_dir = experiment_name_dir(args.experiment_name)
-
-    """Load the parameters from json file"""
-    json_path = os.path.join(exp_name_dir, 'parameters.json')
-    assert os.path.isfile(json_path), ("No json configuration file found at {}".format(json_path))
-    with open(json_path) as data_file:
-        params = json.load(data_file)
-
-    """ train dataloader """
-    data_loader = TrainDataLoader(args.train_path, params)
-
-    """ compute max_batches """
+    '''compute max_batches'''
     for root, dirs, files in os.walk(args.train_path):
         for dirname in dirs:
             dir_path = os.path.join(root, dirname)
             args.max_batches += len(os.listdir(dir_path))
 
-    """ Model on gpu """
-    model = TrackerSiamRPN(params, seq_dataset)
+    '''model on gpu'''
+    model = TrackerSiamRPN(params)
     #model = model.cuda()
     cudnn.benchmark = True
 
-    """ load weights """
+    '''load weights'''
     init_weights(model)
+
     if not args.checkpoint_path == None:
         assert os.path.isfile(args.checkpoint_path), '{} is not valid checkpoint_path'.format(args.checkpoint_path)
         try:
             model.net.load_state_dict(torch.load(args.checkpoint_path, map_location=lambda storage, loc: storage))
-
-            start = 0
-            print('ldcdlmcdlmcdlm')
+            print('You are loading the model.load_state_dict')
         except:
-            start = 0
             init_weights(model)
-    else:
-        start = 0
 
-    """ train phase """
+    '''train phase'''
     closses, rlosses, tlosses = AverageMeter(), AverageMeter(), AverageMeter()
+    start = 0
     steps = 0
     for epoch in range(start, params['epoches']):
 
@@ -97,11 +93,11 @@ def main():
             tlosses.update(loss.cpu().item())
             steps+=1
 
-            if example % 10 == 0:
+            if example % 1 == 0:
                 print("Epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1), steps, args.max_batches, 100*(steps)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
 
 
-        """save model"""
+        '''save model'''
         model_save_dir_pth = '{}/model'.format(exp_name_dir)
         if not os.path.exists(model_save_dir_pth):
                 os.makedirs(model_save_dir_pth)
@@ -118,7 +114,7 @@ def experiment_name_dir(experiment_name):
 
 def init_weights(model, init_type='normal', gain=0.02):
     def init_func(m):
-        # this will apply to each layer
+        '''this will apply to each layer'''
         classname = m.__class__.__name__
         if hasattr(m, 'weight') and (classname.find('conv')!=-1 or classname.find('Linear')!=-1):
             if init_type=='normal':
@@ -141,7 +137,7 @@ def init_weights(model, init_type='normal', gain=0.02):
     model.net.apply(init_func)
 
 class AverageMeter(object):
-    """Computes and stores the average and current value"""
+    '''Computes and stores the average and current value'''
     def __init__(self):
         self.reset()
 
