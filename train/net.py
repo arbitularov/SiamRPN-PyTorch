@@ -81,7 +81,7 @@ class TrackerSiamRPN(Tracker):
 
         '''setup model'''
         self.net = SiamRPN()
-        #self.net = self.net.cuda()
+        self.net = self.net.cuda()
 
         if net_path is not None:
             self.net.load_state_dict(torch.load(
@@ -108,11 +108,12 @@ class TrackerSiamRPN(Tracker):
 
         cur_lr = adjust_learning_rate(self.params["lr"], self.optimizer, epoch, gamma=0.1)
 
-        template     = ret['template_frame_tensor']#.cuda()
-        detection    = ret['detection_frame_tensor']#.cuda()
-        pos_neg_diff = ret['pos_neg_diff_tensor']#.cuda()
+        kernel_reg   = ret['kernel_reg']
+        kernel_cls   = ret['kernel_cls']
+        detection    = ret['detection_tensor'].cuda()
+        pos_neg_diff = ret['pos_neg_diff_tensor'].cuda()
 
-        rout, cout   = self.net(template, detection)
+        rout, cout   = self.net.inference(detection, kernel_reg, kernel_cls)
 
         offsets = rout.permute(1, 2, 3, 0).contiguous().view(4, -1).cpu().detach().numpy()
 
@@ -124,10 +125,10 @@ class TrackerSiamRPN(Tracker):
 
         if backward:
             self.optimizer.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=True)
             self.optimizer.step()
 
-        return closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr #loss.item()
+        return closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr
 
 class MultiBoxLoss(nn.Module):
     def __init__(self):

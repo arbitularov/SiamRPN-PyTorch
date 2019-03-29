@@ -8,6 +8,7 @@ import numpy as np
 from tqdm import tqdm
 from torch.nn import init
 from net import TrackerSiamRPN
+import matplotlib.pyplot as plt
 import torch.backends.cudnn as cudnn
 from data_loader import TrainDataLoader
 from got10k.datasets import ImageNetVID, GOT10k
@@ -41,8 +42,13 @@ def main():
     with open(json_path) as data_file:
         params = json.load(data_file)
 
+    '''model on gpu'''
+    model = TrackerSiamRPN(params)
+    #model = model.cuda()
+    cudnn.benchmark = True
+
     '''setup data loader'''
-    data_loader = TrainDataLoader(seq_dataset, params)
+    data_loader = TrainDataLoader(model, seq_dataset, params)
 
     '''
     cuda = torch.cuda.is_available()
@@ -57,11 +63,6 @@ def main():
             dir_path = os.path.join(root, dirname)
             args.max_batches += len(os.listdir(dir_path))
 
-    '''model on gpu'''
-    model = TrackerSiamRPN(params)
-    #model = model.cuda()
-    cudnn.benchmark = True
-
     '''load weights'''
     init_weights(model)
 
@@ -72,6 +73,27 @@ def main():
             print('You are loading the model.load_state_dict')
         except:
             init_weights(model)
+
+    '''Data for plotting'''
+    steps_array = []
+    loss_array  = []
+    closs_array = []
+    rloss_array = []
+
+    def plot(step, loss, closs, rloss, exp_name_dir, show=True):
+        '''setup plot'''
+        plt.plot(step, loss, 'r', label='loss', color='blue')
+        plt.plot(step, closs, 'r', label='closs', color='red')
+        plt.plot(step, rloss, 'r', label='rloss', color='black')
+        plt.title("Siamese RPN")
+        plt.ylabel('error')
+        plt.legend()
+        plt.xlabel('epoch')
+
+        '''save plot'''
+        plt.savefig("{}/test.png".format(exp_name_dir))
+        if show:
+            plt.show()
 
     '''train phase'''
     closses, rlosses, tlosses = AverageMeter(), AverageMeter(), AverageMeter()
@@ -95,7 +117,12 @@ def main():
 
             if example % 1 == 0:
                 print("Epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1), steps, args.max_batches, 100*(steps)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
+                steps_array.append(steps)
+                loss_array.append(tlosses.avg)
+                closs_array.append(closses.avg)
+                rloss_array.append(rlosses.avg)
 
+        plot(steps_array, loss_array, closs_array, rloss_array, exp_name_dir)
 
         '''save model'''
         model_save_dir_pth = '{}/model'.format(exp_name_dir)
