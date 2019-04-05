@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
 import json
 import torch
 import random
@@ -9,28 +10,20 @@ from tqdm import tqdm
 from torch.nn import init
 from net import TrackerSiamRPN
 import matplotlib.pyplot as plt
+from data import TrainDataLoader
 import torch.backends.cudnn as cudnn
-from data_loader import TrainDataLoader
-from got10k.datasets import ImageNetVID, GOT10k
+from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
 parser.add_argument('--train_path', default='/Users/arbi/Desktop/val', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--checkpoint_path', default=None, help='resume')
+parser.add_argument('--checkpoint_path', default='../model_e25.pth', help='resume')
 parser.add_argument('--max_batches', default=0, type=int, metavar='N', help='number of batch in one epoch')
 
-def main():
+#../weights-0690000.pth.tar #../model_e25.pth
 
-    '''setup dataset'''
-    name = 'GOT-10k'
-    assert name in ['VID', 'GOT-10k']
-    if name == 'GOT-10k':
-        root_dir = 'data/GOT-10k'
-        seq_dataset = GOT10k('/Users/arbi/Desktop/', subset='val')
-    elif name == 'VID':
-        root_dir = 'data/ILSVRC'
-        seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
+def main():
 
     '''parameter initialization'''
     args = parser.parse_args()
@@ -48,14 +41,7 @@ def main():
     cudnn.benchmark = True
 
     '''setup data loader'''
-    data_loader = TrainDataLoader(model, seq_dataset, params)
-
-    '''
-    cuda = torch.cuda.is_available()
-    loader = DataLoader(
-        pair_dataset, batch_size=8, shuffle=True,
-        pin_memory=cuda, drop_last=True, num_workers=4)
-    '''
+    data_loader = TrainDataLoader(args.train_path)
 
     '''compute max_batches'''
     for root, dirs, files in os.walk(args.train_path):
@@ -80,15 +66,15 @@ def main():
     closs_array = []
     rloss_array = []
 
-    def plot(step, loss, closs, rloss, exp_name_dir, show=True):
+    def plot(step, loss, closs, rloss, exp_name_dir, show=False):
         '''setup plot'''
         plt.plot(step, loss, 'r', label='loss', color='blue')
         plt.plot(step, closs, 'r', label='closs', color='red')
         plt.plot(step, rloss, 'r', label='rloss', color='black')
         plt.title("Siamese RPN")
         plt.ylabel('error')
-        plt.legend()
         plt.xlabel('epoch')
+        plt.legend()
 
         '''save plot'''
         plt.savefig("{}/test.png".format(exp_name_dir))
@@ -97,13 +83,12 @@ def main():
 
     '''train phase'''
     closses, rlosses, tlosses = AverageMeter(), AverageMeter(), AverageMeter()
-    start = 0
     steps = 0
-    for epoch in range(start, params['epoches']):
+    for epoch in range(params['epoches']):
+        for example in tqdm(range(100)):
 
-        for example in tqdm(range(100)): # args.max_batches
-
-            closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr = model.step(data_loader, epoch, backward=True)
+            index_list = range(data_loader.__len__())
+            closs, rloss, loss, cur_lr = model.step(epoch, data_loader, example, index_list, backward=True)
 
             closs_ = closs.cpu().item()
 
@@ -116,7 +101,7 @@ def main():
             steps+=1
 
             if example % 1 == 0:
-                print("Epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1), steps, args.max_batches, 100*(steps)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
+                print("Train epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1), steps, args.max_batches, 100*(steps)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
                 steps_array.append(steps)
                 loss_array.append(tlosses.avg)
                 closs_array.append(closses.avg)

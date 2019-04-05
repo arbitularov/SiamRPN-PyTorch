@@ -9,4 +9,10 @@ model_e3.pth
 model_e4.pth
 weights-000.pth.tar
 test
+model_e6.pth
+model_e9.pth
+model_e25.pth
+model_got.pth
 model.pth
+test.png
+weights-0690000.pth.tar

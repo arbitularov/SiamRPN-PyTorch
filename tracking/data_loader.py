@@ -124,6 +124,7 @@ class TrainDataLoader(object):
 
         self.ret['template_cropped_resized'] = self.template_crop_resize(image, box)
         #self.ret['template_cropped_resized'].show()
+
         transform = self.get_transform_for_train()
         template_tensor = transform(self.ret['template_cropped_resized'])
         self.ret['template_tensor'] = template_tensor.unsqueeze(0)
@@ -185,7 +186,7 @@ class TrainDataLoader(object):
         t1 = box
         cx, cy, tw, th = np.array([t1[0]+t1[2]//2, t1[1]+t1[3]//2, t1[2], t1[3]], np.float32)
 
-        p = round((tw + th)/2, 2)
+        p = round(((tw + th)/2), 2)
 
         template_square_size  = int(np.sqrt((tw + p)*(th + p)))
         detection_square_size = int(template_square_size * 2)
@@ -198,6 +199,8 @@ class TrainDataLoader(object):
         top    = -detection_lt_y if detection_lt_y < 0 else 0
         right  =  detection_rb_x - w if detection_rb_x > w else 0
         bottom =  detection_rb_y - h if detection_rb_y > h else 0
+
+        self.ret['ltrb'] = (left, top, right, bottom)
 
         padding = tuple(map(int, [left, top, right, bottom]))
 
@@ -213,6 +216,9 @@ class TrainDataLoader(object):
         dt = np.clip(cy + top  - detection_square_size//2, 0, new_h - detection_square_size)
         dr = np.clip(new_w - dl - detection_square_size, 0, new_w - detection_square_size)
         db = np.clip(new_h - dt - detection_square_size, 0, new_h - detection_square_size )
+
+        self.ret['dldtdrdb'] = (dl, dt, dr, db)
+
 
         detection_cropped = ImageOps.crop(detection_img_padding, (dl, dt, dr, db))
         #self.ret['detection_cropped'].show()
@@ -244,6 +250,9 @@ class TrainDataLoader(object):
         x2 = np.clip(x3_of_d, 0, x12-x11).astype(np.float32)
         y2 = np.clip(y3_of_d, 0, y12-y11).astype(np.float32)
         target_in_detection_x1y1x2y2 = np.array([x1, y1, x2, y2], dtype = np.float32)
+
+        self.ret['detection_cropped_resized_ratio'] = detection_cropped_resized_ratio
+
 
         cords_in_cropped_detection = np.array((x1, y1, x2, y2), dtype = np.float32)
         cords_in_cropped_resized_detection = (cords_in_cropped_detection * detection_cropped_resized_ratio).astype(np.int32)

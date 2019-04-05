@@ -12,8 +12,9 @@ from got10k.trackers import Tracker
 
 class SiamRPN(nn.Module):
 
-    def __init__(self, anchor_num=5):
+    def __init__(self, anchor_num = 5):
         super(SiamRPN, self).__init__()
+
         self.anchor_num = anchor_num
         self.feature = nn.Sequential(
             # conv1
@@ -38,11 +39,11 @@ class SiamRPN(nn.Module):
             nn.Conv2d(768, 512, 3, 1),
             nn.BatchNorm2d(512))
 
-        self.conv_reg_z = nn.Conv2d(512, 512 * 4 * anchor_num, 3, 1)
-        self.conv_reg_x = nn.Conv2d(512, 512, 3)
+        self.conv_reg_z = nn.Conv2d(512, 512 * 4 * self.anchor_num, 3, 1)
+        self.conv_reg_x = nn.Conv2d(512, 512, 3) # 8 is batch_size
         self.conv_cls_z = nn.Conv2d(512, 512 * 2 * anchor_num, 3, 1)
-        self.conv_cls_x = nn.Conv2d(512, 512, 3)
-        self.adjust_reg = nn.Conv2d(4 * anchor_num, 4 * anchor_num, 1)
+        self.conv_cls_x = nn.Conv2d(512, 512, 3) # 8 is batch_size
+        self.adjust_reg = nn.Conv2d(4 * anchor_num, 4 * anchor_num*1, 1)
 
     def forward(self, z, x):
         return self.inference(x, *self.learn(z))
@@ -53,8 +54,8 @@ class SiamRPN(nn.Module):
         kernel_cls = self.conv_cls_z(z)
 
         k = kernel_reg.size()[-1]
-        kernel_reg = kernel_reg.view(4 * self.anchor_num, 512, k, k)
-        kernel_cls = kernel_cls.view(2 * self.anchor_num, 512, k, k)
+        kernel_reg = kernel_reg.view(4 * self.anchor_num, 512, k, k) # 8 is batch_size
+        kernel_cls = kernel_cls.view(2 * self.anchor_num, 512, k, k) # 8 is batch_size
 
         return kernel_reg, kernel_cls
 
@@ -81,7 +82,7 @@ class TrackerSiamRPN(Tracker):
 
         '''setup model'''
         self.net = SiamRPN()
-        self.net = self.net.cuda()
+        #self.net = self.net.cuda()
 
         if net_path is not None:
             self.net.load_state_dict(torch.load(
@@ -89,7 +90,7 @@ class TrackerSiamRPN(Tracker):
         #self.net = self.net.to(self.device)
 
         '''setup optimizer'''
-        self.criterion   = MultiBoxLoss()
+        self.criterion   = MultiBoxLoss(params)
 
         self.optimizer   = torch.optim.SGD(
             self.net.parameters(),
@@ -97,55 +98,54 @@ class TrackerSiamRPN(Tracker):
             momentum     = self.params["momentum"],
             weight_decay = self.params["weight_decay"])
 
-    def step(self, data_loader, epoch, backward=True):
+    def step(self, epoch, data_loader, example, index_list, backward=True):
 
         if backward:
             self.net.train()
         else:
             self.net.eval()
 
-        ret = data_loader.__get__()
-
         cur_lr = adjust_learning_rate(self.params["lr"], self.optimizer, epoch, gamma=0.1)
 
-        kernel_reg   = ret['kernel_reg']
-        kernel_cls   = ret['kernel_cls']
-        detection    = ret['detection_tensor'].cuda()
-        pos_neg_diff = ret['pos_neg_diff_tensor'].cuda()
+        template, detection, pos_neg_diff = data_loader.__getitem__(random.choice(index_list))
 
-        rout, cout   = self.net.inference(detection, kernel_reg, kernel_cls)
+        rout, cout = self.net(template, detection)
 
-        offsets = rout.permute(1, 2, 3, 0).contiguous().view(4, -1).cpu().detach().numpy()
+        cout = cout.squeeze().permute(1,2,0).reshape(-1, 2) # 8 is batch_size
 
-        cout  = cout.squeeze().permute(1,2,0).reshape(-1, 2)
-        rout  = rout.squeeze().permute(1,2,0).reshape(-1, 4)
+        rout = rout.squeeze().permute(1,2,0).reshape(-1, 4) # 8 is batch_size
 
         predictions, targets = (cout, rout), pos_neg_diff
-        closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index = self.criterion(predictions, targets)
+
+        closs, rloss, loss = self.criterion(predictions, targets)
 
         if backward:
             self.optimizer.zero_grad()
             loss.backward(retain_graph=True)
             self.optimizer.step()
 
-        return closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index, cur_lr
+        return closs, rloss, loss, cur_lr
 
 class MultiBoxLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, params):
         super(MultiBoxLoss, self).__init__()
+
+        self.params = params
 
     def forward(self, predictions, targets):
 
         cout, rout = predictions
 
         """ class """
-        class_pred, class_target = cout, targets[:, 0].long()
 
+        class_pred, class_target = cout, targets[:,0].long()
         pos_index , neg_index    = list(np.where(class_target.cpu() == 1)[0]), list(np.where(class_target.cpu() == 0)[0])
         pos_num, neg_num         = len(pos_index), len(neg_index)
+
         class_pred, class_target = class_pred[pos_index + neg_index], class_target[pos_index + neg_index]
 
         closs = F.cross_entropy(class_pred, class_target, reduction='none')
+
         closs = torch.div(torch.sum(closs), 64)
 
         """ regression """
@@ -159,7 +159,8 @@ class MultiBoxLoss(nn.Module):
         rloss = torch.div(torch.sum(rloss[pos_index]), 16)
 
         loss = closs + rloss
-        return closs, rloss, loss, reg_pred, reg_target, pos_index, neg_index
+
+        return closs, rloss, loss #, reg_pred, reg_target, pos_index, neg_index # 8 is batch_size
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
