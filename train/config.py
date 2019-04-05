@@ -1,10 +1,11 @@
 class Config(object):
-    
+
     template_img_size = 127
     detection_img_size = 271
+    epoches = 200
+    train_epoch_size = 1000
     stride = 8
     lr = 1e-5
-    epoches = 200
     weight_decay = 0.0005
     momentum = 0.9
     context = 0.5

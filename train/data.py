@@ -303,9 +303,9 @@ class TrainDataLoader(Dataset):
         transform = self.get_transform_for_train()
         template_tensor = transform(template_pil)
         detection_tensor= transform(detection_pil)
-        self.ret['template_tensor'] = template_tensor.unsqueeze(0)
+        self.ret['template_tensor'] = template_tensor#.unsqueeze(0)
 
-        self.ret['detection_tensor']= detection_tensor.unsqueeze(0)
+        self.ret['detection_tensor']= detection_tensor#.unsqueeze(0)
 
         self.ret['pos_neg_diff_tensor'] = torch.Tensor(pos_neg_diff)
 
@@ -323,7 +323,7 @@ class TrainDataLoader(Dataset):
     def _max_batches(self):
         a = 0
         for root, dirs, files in os.walk(self.img_dir_path):
-            
+
             for dirname in dirs:
                 dir_path = os.path.join(root, dirname)
                 a += len(os.listdir(dir_path))

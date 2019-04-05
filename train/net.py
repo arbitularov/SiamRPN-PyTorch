@@ -100,7 +100,7 @@ class TrackerSiamRPN(Tracker):
             momentum     = config.momentum,
             weight_decay = config.weight_decay)
 
-    def step(self, epoch, data_loader, example, index_list, backward=True):
+    def step(self, epoch, dataset, backward=True):
 
         if backward:
             self.net.train()
@@ -109,7 +109,7 @@ class TrackerSiamRPN(Tracker):
 
         cur_lr = adjust_learning_rate(config.lr, self.optimizer, epoch, gamma=0.1)
 
-        template, detection, pos_neg_diff = data_loader.__getitem__(random.choice(index_list))
+        template, detection, pos_neg_diff = dataset
         if self.cuda:
             template, detection, pos_neg_diff = template.cuda(), detection.cuda(), pos_neg_diff.cuda()
 
@@ -119,7 +119,7 @@ class TrackerSiamRPN(Tracker):
 
         rout = rout.squeeze().permute(1,2,0).reshape(-1, 4) # 8 is batch_size
 
-        predictions, targets = (cout, rout), pos_neg_diff
+        predictions, targets = (cout, rout), pos_neg_diff.squeeze()
 
         closs, rloss, loss = self.criterion(predictions, targets)
 

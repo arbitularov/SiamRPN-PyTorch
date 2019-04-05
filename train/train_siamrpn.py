@@ -4,6 +4,7 @@ import sys
 import json
 import torch
 import random
+import logging
 import argparse
 import numpy as np
 from tqdm import tqdm
@@ -30,7 +31,12 @@ def main():
     model = TrackerSiamRPN()
 
     '''setup data loader'''
-    data_loader = TrainDataLoader(args.train_path)
+    data_loader  = TrainDataLoader(args.train_path)
+    train_loader = DataLoader(  dataset    = data_loader,
+                                batch_size = 1,
+                                shuffle    = True,
+                                num_workers= 1,
+                                pin_memory = True)
 
     '''load weights'''
     init_weights(model)
@@ -45,39 +51,44 @@ def main():
 
     '''train phase'''
     closses, rlosses, tlosses, steps = AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()
+
     for epoch in range(config.epoches):
-        for example in tqdm(range(10)):
+        print('Train epoch {}/{}'.format(epoch+1, config.epoches))
+        with tqdm(total=config.train_epoch_size) as progbar:
+            for i, dataset in enumerate(train_loader):
 
-            index_list = range(data_loader.__len__())
-            closs, rloss, loss, cur_lr = model.step(epoch, data_loader, example, index_list, backward=True)
+                index_list = range(data_loader.__len__())
+                closs, rloss, loss, cur_lr = model.step(epoch, dataset, backward=True)
 
-            closs_ = closs.cpu().item()
+                closs_ = closs.cpu().item()
 
-            if np.isnan(closs_):
-               sys.exit(0)
+                if np.isnan(closs_):
+                   sys.exit(0)
 
-            closses.update(closs.cpu().item())
-            closses.closs_array.append(closses.avg)
+                closses.update(closs.cpu().item())
+                closses.closs_array.append(closses.avg)
 
-            rlosses.update(rloss.cpu().item())
-            rlosses.rloss_array.append(rlosses.avg)
+                rlosses.update(rloss.cpu().item())
+                rlosses.rloss_array.append(rlosses.avg)
 
-            tlosses.update(loss.cpu().item())
-            tlosses.loss_array.append(tlosses.avg)
+                tlosses.update(loss.cpu().item())
+                tlosses.loss_array.append(tlosses.avg)
 
-            steps.update(tlosses.count)
-            steps.steps_array.append(steps.count)
+                steps.update(tlosses.count)
+                steps.steps_array.append(steps.count)
 
-            if example % 1 == 0:
-                print("Train epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1),
-                        steps.count, data_loader._max_batches(), 100*(steps.count)/data_loader._max_batches(),
-                        cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
+                progbar.set_postfix(closs='{:05.3f}'.format(closses.avg), rloss='{:05.3f}'.format(rlosses.avg), tloss='{:05.3f}'.format(tlosses.avg))
 
-        '''save plot'''
-        steps.plot(exp_name_dir)
+                progbar.update()
+                if i >= config.train_epoch_size - 1:
+                    '''save plot'''
+                    steps.plot(exp_name_dir)
 
-        '''save model'''
-        model.save(model, exp_name_dir, epoch)
+                    '''save model'''
+                    model.save(model, exp_name_dir, epoch)
+
+                    break
+
 
 def init_weights(model, init_type='normal', gain=0.02):
     def init_func(m):
