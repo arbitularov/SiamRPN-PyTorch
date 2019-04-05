@@ -126,6 +126,7 @@ class TrainDataLoader(Dataset):
         self.anchors = self.anchor_generator.gen_anchors() #centor
         self.ret = {}
         self.count = 0
+        self.max_batches = 0
 
     def get_transform_for_train(self):
         transform_list = []
@@ -318,3 +319,12 @@ class TrainDataLoader(Dataset):
 
     def __len__(self):
         return len(self.sub_class_dir)
+
+    def _max_batches(self):
+        a = 0
+        for root, dirs, files in os.walk(self.img_dir_path):
+            
+            for dirname in dirs:
+                dir_path = os.path.join(root, dirname)
+                a += len(os.listdir(dir_path))
+        return a

@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-import torch.nn as nn
-import torch.nn.functional as F
-import torch
-import numpy as np
+import os
 import cv2
+import torch
 import random
+import numpy as np
+import torch.nn as nn
 import matplotlib.pyplot as plt
-
+import torch.nn.functional as F
+from parameters import Config as config
 from got10k.trackers import Tracker
 
 class SiamRPN(nn.Module):
@@ -71,14 +72,13 @@ class SiamRPN(nn.Module):
 
 class TrackerSiamRPN(Tracker):
 
-    def __init__(self, params, net_path=None, **kargs):
+    def __init__(self, net_path=None, **kargs):
         super(TrackerSiamRPN, self).__init__(
             name='SiamRPN', is_deterministic=True)
 
         '''setup GPU device if available'''
         # self.cuda   = torch.cuda.is_available()
         # self.device = torch.device('cuda:0' if self.cuda else 'cpu')
-        self.params   = params
 
         '''setup model'''
         self.net = SiamRPN()
@@ -90,13 +90,13 @@ class TrackerSiamRPN(Tracker):
         #self.net = self.net.to(self.device)
 
         '''setup optimizer'''
-        self.criterion   = MultiBoxLoss(params)
+        self.criterion   = MultiBoxLoss()
 
         self.optimizer   = torch.optim.SGD(
             self.net.parameters(),
-            lr           = self.params["lr"],
-            momentum     = self.params["momentum"],
-            weight_decay = self.params["weight_decay"])
+            lr           = config.lr,
+            momentum     = config.momentum,
+            weight_decay = config.weight_decay)
 
     def step(self, epoch, data_loader, example, index_list, backward=True):
 
@@ -105,7 +105,7 @@ class TrackerSiamRPN(Tracker):
         else:
             self.net.eval()
 
-        cur_lr = adjust_learning_rate(self.params["lr"], self.optimizer, epoch, gamma=0.1)
+        cur_lr = adjust_learning_rate(config.lr, self.optimizer, epoch, gamma=0.1)
 
         template, detection, pos_neg_diff = data_loader.__getitem__(random.choice(index_list))
 
@@ -126,11 +126,17 @@ class TrackerSiamRPN(Tracker):
 
         return closs, rloss, loss, cur_lr
 
-class MultiBoxLoss(nn.Module):
-    def __init__(self, params):
-        super(MultiBoxLoss, self).__init__()
+    '''save model'''
+    def save(self,model, exp_name_dir, epoch):
+        model_save_dir_pth = '{}/model'.format(exp_name_dir)
+        if not os.path.exists(model_save_dir_pth):
+                os.makedirs(model_save_dir_pth)
+        net_path = os.path.join(model_save_dir_pth, 'model_e%d.pth' % (epoch + 1))
+        torch.save(model.net.state_dict(), net_path)
 
-        self.params = params
+class MultiBoxLoss(nn.Module):
+    def __init__(self):
+        super(MultiBoxLoss, self).__init__()
 
     def forward(self, predictions, targets):
 

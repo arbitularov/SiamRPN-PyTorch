@@ -8,18 +8,17 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from torch.nn import init
+from util import AverageMeter
 from net import TrackerSiamRPN
-import matplotlib.pyplot as plt
 from data import TrainDataLoader
-import torch.backends.cudnn as cudnn
+from parameters import Config as config
 from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
 parser.add_argument('--train_path', default='/Users/arbi/Desktop/val', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--checkpoint_path', default='../model_e25.pth', help='resume')
-parser.add_argument('--max_batches', default=0, type=int, metavar='N', help='number of batch in one epoch')
+parser.add_argument('--checkpoint_path', default=None, help='resume')
 
 #../weights-0690000.pth.tar #../model_e25.pth
 
@@ -27,27 +26,13 @@ def main():
 
     '''parameter initialization'''
     args = parser.parse_args()
-    exp_name_dir = experiment_name_dir(args.experiment_name)
-
-    '''Load the parameters from json file'''
-    json_path = os.path.join(exp_name_dir, 'parameters.json')
-    assert os.path.isfile(json_path), ("No json configuration file found at {}".format(json_path))
-    with open(json_path) as data_file:
-        params = json.load(data_file)
+    exp_name_dir = AverageMeter.experiment_name_dir(args.experiment_name)
 
     '''model on gpu'''
-    model = TrackerSiamRPN(params)
-    #model = model.cuda()
-    cudnn.benchmark = True
+    model = TrackerSiamRPN()
 
     '''setup data loader'''
     data_loader = TrainDataLoader(args.train_path)
-
-    '''compute max_batches'''
-    for root, dirs, files in os.walk(args.train_path):
-        for dirname in dirs:
-            dir_path = os.path.join(root, dirname)
-            args.max_batches += len(os.listdir(dir_path))
 
     '''load weights'''
     init_weights(model)
@@ -60,32 +45,10 @@ def main():
         except:
             init_weights(model)
 
-    '''Data for plotting'''
-    steps_array = []
-    loss_array  = []
-    closs_array = []
-    rloss_array = []
-
-    def plot(step, loss, closs, rloss, exp_name_dir, show=False):
-        '''setup plot'''
-        plt.plot(step, loss, 'r', label='loss', color='blue')
-        plt.plot(step, closs, 'r', label='closs', color='red')
-        plt.plot(step, rloss, 'r', label='rloss', color='black')
-        plt.title("Siamese RPN")
-        plt.ylabel('error')
-        plt.xlabel('epoch')
-        plt.legend()
-
-        '''save plot'''
-        plt.savefig("{}/test.png".format(exp_name_dir))
-        if show:
-            plt.show()
-
     '''train phase'''
-    closses, rlosses, tlosses = AverageMeter(), AverageMeter(), AverageMeter()
-    steps = 0
-    for epoch in range(params['epoches']):
-        for example in tqdm(range(100)):
+    closses, rlosses, tlosses, steps = AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()
+    for epoch in range(config.epoches):
+        for example in tqdm(range(10)):
 
             index_list = range(data_loader.__len__())
             closs, rloss, loss, cur_lr = model.step(epoch, data_loader, example, index_list, backward=True)
@@ -96,33 +59,27 @@ def main():
                sys.exit(0)
 
             closses.update(closs.cpu().item())
+            closses.closs_array.append(closses.avg)
+
             rlosses.update(rloss.cpu().item())
+            rlosses.rloss_array.append(rlosses.avg)
+
             tlosses.update(loss.cpu().item())
-            steps+=1
+            tlosses.loss_array.append(tlosses.avg)
+
+            steps.update(tlosses.count)
+            steps.steps_array.append(steps.count)
 
             if example % 1 == 0:
-                print("Train epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1), steps, args.max_batches, 100*(steps)/args.max_batches, cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
-                steps_array.append(steps)
-                loss_array.append(tlosses.avg)
-                closs_array.append(closses.avg)
-                rloss_array.append(rlosses.avg)
+                print("Train epoch:{:04d}\texample:{:06d}/{:06d}({:.2f})%\tlr:{:.7f}\tcloss:{:.4f}\trloss:{:.4f}\ttloss:{:.4f}".format((epoch+1),
+                        steps.count, data_loader._max_batches(), 100*(steps.count)/data_loader._max_batches(),
+                        cur_lr, closses.avg, rlosses.avg, tlosses.avg ))
 
-        plot(steps_array, loss_array, closs_array, rloss_array, exp_name_dir)
+        '''save plot'''
+        steps.plot(exp_name_dir)
 
         '''save model'''
-        model_save_dir_pth = '{}/model'.format(exp_name_dir)
-        if not os.path.exists(model_save_dir_pth):
-                os.makedirs(model_save_dir_pth)
-        net_path = os.path.join(model_save_dir_pth, 'model_e%d.pth' % (epoch + 1))
-        torch.save(model.net.state_dict(), net_path)
-
-def experiment_name_dir(experiment_name):
-    experiment_name_dir = 'experiments/{}'.format(experiment_name)
-    if experiment_name == 'default':
-        print('You are using "default" experiment, my advice to you is: Copy "default" change folder name and change settings in file "parameters.json"')
-    else:
-        print('You are using "{}" experiment'.format(experiment_name))
-    return experiment_name_dir
+        model.save(model, exp_name_dir, epoch)
 
 def init_weights(model, init_type='normal', gain=0.02):
     def init_func(m):
@@ -147,23 +104,6 @@ def init_weights(model, init_type='normal', gain=0.02):
             init.constant_(m.bias.data, 0.0)
     #print('initialize network with %s' % init_type)
     model.net.apply(init_func)
-
-class AverageMeter(object):
-    '''Computes and stores the average and current value'''
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
 
 if __name__ == '__main__':
     main()
