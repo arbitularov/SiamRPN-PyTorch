@@ -11,7 +11,7 @@ from torch.nn import init
 from util import AverageMeter
 from net import TrackerSiamRPN
 from data import TrainDataLoader
-from parameters import Config as config
+from config import Config as config
 from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')

@@ -9,7 +9,7 @@ import torch.nn as nn
 from loss import MultiBoxLoss
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-from parameters import Config as config
+from config import Config as config
 from got10k.trackers import Tracker
 
 class SiamRPN(nn.Module):
@@ -78,12 +78,13 @@ class TrackerSiamRPN(Tracker):
             name='SiamRPN', is_deterministic=True)
 
         '''setup GPU device if available'''
-        # self.cuda   = torch.cuda.is_available()
-        # self.device = torch.device('cuda:0' if self.cuda else 'cpu')
+        self.cuda   = torch.cuda.is_available()
+        self.device = torch.device('cuda:0' if self.cuda else 'cpu')
 
         '''setup model'''
         self.net = SiamRPN()
-        #self.net = self.net.cuda()
+        if self.cuda:
+            self.net = self.net.cuda()
 
         if net_path is not None:
             self.net.load_state_dict(torch.load(
@@ -109,6 +110,8 @@ class TrackerSiamRPN(Tracker):
         cur_lr = adjust_learning_rate(config.lr, self.optimizer, epoch, gamma=0.1)
 
         template, detection, pos_neg_diff = data_loader.__getitem__(random.choice(index_list))
+        if self.cuda:
+            template, detection, pos_neg_diff = template.cuda(), detection.cuda(), pos_neg_diff.cuda()
 
         rout, cout = self.net(template, detection)
 
