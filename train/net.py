@@ -6,6 +6,7 @@ import torch
 import random
 import numpy as np
 import torch.nn as nn
+from loss import MultiBoxLoss
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from parameters import Config as config
@@ -134,71 +135,9 @@ class TrackerSiamRPN(Tracker):
         net_path = os.path.join(model_save_dir_pth, 'model_e%d.pth' % (epoch + 1))
         torch.save(model.net.state_dict(), net_path)
 
-class MultiBoxLoss(nn.Module):
-    def __init__(self):
-        super(MultiBoxLoss, self).__init__()
-
-    def forward(self, predictions, targets):
-
-        cout, rout = predictions
-
-        """ class """
-
-        class_pred, class_target = cout, targets[:,0].long()
-        pos_index , neg_index    = list(np.where(class_target.cpu() == 1)[0]), list(np.where(class_target.cpu() == 0)[0])
-        pos_num, neg_num         = len(pos_index), len(neg_index)
-
-        class_pred, class_target = class_pred[pos_index + neg_index], class_target[pos_index + neg_index]
-
-        closs = F.cross_entropy(class_pred, class_target, reduction='none')
-
-        closs = torch.div(torch.sum(closs), 64)
-
-        """ regression """
-        reg_pred = rout
-        reg_target = targets[:, 1:]
-
-        rloss = F.smooth_l1_loss(reg_pred, reg_target, reduction='none')
-
-        rloss = torch.div(torch.sum(rloss, dim = 1), 4)
-
-        rloss = torch.div(torch.sum(rloss[pos_index]), 16)
-
-        loss = closs + rloss
-
-        return closs, rloss, loss #, reg_pred, reg_target, pos_index, neg_index # 8 is batch_size
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
 def adjust_learning_rate(lr, optimizer, epoch, gamma=0.1):
     """Sets the learning rate to the initial LR decayed 0.9 every 50 epochs"""
     lr = lr * (0.9 ** (epoch // 1))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return lr
-
-
-if __name__ == '__main__':
-    model = SiameseRPN()
-
-    template = torch.ones((1, 3, 127, 127))
-    detection= torch.ones((1, 3, 271, 271))
-
-    y1, y2 = model(template, detection)
-    print(y1.shape) #[1, 10, 19, 19]
-    print(y2.shape) #[1, 20, 19, 19]15

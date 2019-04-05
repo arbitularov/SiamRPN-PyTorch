@@ -20,8 +20,6 @@ parser.add_argument('--train_path', default='/Users/arbi/Desktop/val', metavar='
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--checkpoint_path', default=None, help='resume')
 
-#../weights-0690000.pth.tar #../model_e25.pth
-
 def main():
 
     '''parameter initialization'''
@@ -91,7 +89,7 @@ def init_weights(model, init_type='normal', gain=0.02):
             elif init_type == 'xavier':
                 init.xavier_normal_(m.weight.data, gain=gain)
             elif init_type == 'kaiming':
-                init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')#good for relu
+                init.kaiming_normal_(m.weight.data, a=0, mode='fan_in') # good for relu
             elif init_type == 'orthogonal':
                 init.orthogonal_(m.weight.data, gain=gain)
             else:
