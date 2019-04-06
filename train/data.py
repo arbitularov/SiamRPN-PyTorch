@@ -318,13 +318,12 @@ class TrainDataLoader(Dataset):
         return self.ret['template_tensor'], self.ret['detection_tensor'], self.ret['pos_neg_diff_tensor']
 
     def __len__(self):
-        return len(self.sub_class_dir)
-
-    def _max_batches(self):
         a = 0
         for root, dirs, files in os.walk(self.img_dir_path):
 
             for dirname in dirs:
                 dir_path = os.path.join(root, dirname)
                 a += len(os.listdir(dir_path))
-        return a
+        return a #len(self.sub_class_dir)
+
+    

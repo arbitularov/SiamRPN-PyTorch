@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
 parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k/train', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--checkpoint_path', default=None, help='resume')
+parser.add_argument('--checkpoint_path', default='experiments/default/model/model_e74.pth', help='resume')
 
 def main():
 
