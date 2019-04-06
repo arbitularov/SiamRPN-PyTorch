@@ -117,16 +117,16 @@ class Anchor_ms(object):
         return over_square/all_square
 
 class TrainDataLoader(Dataset):
-    def __init__(self, img_dir_path, out_feature = 19, max_inter = 80):
-        assert osp.isdir(img_dir_path), 'input img_dir_path error'
+    def __init__(self, seq_dataset, out_feature = 19, max_inter = 80):
+
         self.anchor_generator = Anchor_ms(out_feature, out_feature)
-        self.img_dir_path = img_dir_path # this is a root dir contain subclass
-        self.max_inter = max_inter
-        self.sub_class_dir = [sub_class_dir for sub_class_dir in os.listdir(img_dir_path) if os.path.isdir(os.path.join(img_dir_path, sub_class_dir))]
-        self.anchors = self.anchor_generator.gen_anchors() #centor
-        self.ret = {}
-        self.count = 0
-        self.max_batches = 0
+        #self.img_dir_path     = img_dir_path # this is a root dir contain subclass
+        self.max_inter        = max_inter
+        self.sub_class_dir    = seq_dataset
+        self.anchors          = self.anchor_generator.gen_anchors() #centor
+        self.ret              = {}
+        self.count            = 0
+        self.max_batches      = 0
 
     def get_transform_for_train(self):
         transform_list = []
@@ -150,10 +150,8 @@ class TrainDataLoader(Dataset):
         # img_dir_path -> sub_class_dir_path -> template_img_path
         # use index_of_subclass to select a sub directory
         assert index_of_subclass < len(self.sub_class_dir), 'index_of_subclass should less than total classes'
-        sub_class_dir_basename = self.sub_class_dir[index_of_subclass]
-        sub_class_dir_path = os.path.join(self.img_dir_path, sub_class_dir_basename)
-        sub_class_img_name = [img_name for img_name in os.listdir(sub_class_dir_path) if not img_name.find('.jpg') == -1]
-        sub_class_img_name = sorted(sub_class_img_name)
+
+        sub_class_img_name = self.sub_class_dir[index_of_subclass][0]
         sub_class_img_num  = len(sub_class_img_name)
         sub_class_gt_name  = 'groundtruth.txt'
 
@@ -161,19 +159,23 @@ class TrainDataLoader(Dataset):
         # ++++++++++++++++++++++++++++ add break in sequeence [0,0,0,0] ++++++++++++++++++++++++++++++++++
         status = True
         while status:
-            if self.max_inter >= sub_class_img_num-1:
-                self.max_inter = sub_class_img_num//2
+            '''if self.max_inter >= sub_class_img_num-1:
+                self.max_inter = sub_class_img_num//2'''
 
             template_index = np.clip(random.choice(range(0, max(1, sub_class_img_num - self.max_inter))), 0, sub_class_img_num-1)
+            #print('template_index', template_index)
             detection_index= np.clip(random.choice(range(1, max(2, self.max_inter))) + template_index, 0, sub_class_img_num-1)
+            #print('detection_index', detection_index)
 
-            template_name, detection_name  = sub_class_img_name[template_index], sub_class_img_name[detection_index]
-            template_img_path, detection_img_path = osp.join(sub_class_dir_path, template_name), osp.join(sub_class_dir_path, detection_name)
-            gt_path = osp.join(sub_class_dir_path, sub_class_gt_name)
-            with open(gt_path, 'r') as f:
-                lines = f.readlines()
-            cords_of_template_abs  = [abs(int(float(i))) for i in lines[template_index].strip('\n').split(',')[:4]]
-            cords_of_detection_abs = [abs(int(float(i))) for i in lines[detection_index].strip('\n').split(',')[:4]]
+            template_img_path, detection_img_path  = sub_class_img_name[template_index], sub_class_img_name[detection_index]
+            #print('template_img_path, detection_img_path', template_img_path, detection_img_path)
+            #template_img_path, detection_img_path = osp.join(sub_class_dir_path, template_name), osp.join(sub_class_dir_path, detection_name)
+
+            cords_of_template_abs  = self.sub_class_dir[index_of_subclass][1][template_index]
+            #print('cords_of_template_abs', cords_of_template_abs)
+            cords_of_detection_abs = self.sub_class_dir[index_of_subclass][1][detection_index]
+            #print('cords_of_detection_abs', cords_of_detection_abs)
+
 
             if cords_of_template_abs[2]*cords_of_template_abs[3]*cords_of_detection_abs[2]*cords_of_detection_abs[3] != 0:
                 status = False
@@ -183,11 +185,11 @@ class TrainDataLoader(Dataset):
         # load infomation of template and detection
         self.ret['template_img_path']      = template_img_path
         self.ret['detection_img_path']     = detection_img_path
-        self.ret['template_target_x1y1wh'] = [int(float(i)) for i in lines[template_index].strip('\n').split(',')[:4]]
-        self.ret['detection_target_x1y1wh']= [int(float(i)) for i in lines[detection_index].strip('\n').split(',')[:4]]
+        self.ret['template_target_x1y1wh'] = cords_of_template_abs
+        self.ret['detection_target_x1y1wh']= cords_of_detection_abs
         t1, t2 = self.ret['template_target_x1y1wh'].copy(), self.ret['detection_target_x1y1wh'].copy()
-        self.ret['template_target_xywh'] = np.array([t1[0]+t1[2]//2, t1[1]+t1[3]//2, t1[2], t1[3]], np.float32)
-        self.ret['detection_target_xywh']= np.array([t2[0]+t2[2]//2, t2[1]+t2[3]//2, t2[2], t2[3]], np.float32)
+        self.ret['template_target_xywh']   = np.array([t1[0]+t1[2]//2, t1[1]+t1[3]//2, t1[2], t1[3]], np.float32)
+        self.ret['detection_target_xywh']  = np.array([t2[0]+t2[2]//2, t2[1]+t2[3]//2, t2[2], t2[3]], np.float32)
         self.ret['anchors'] = self.anchors
         self._average()
 
@@ -213,8 +215,8 @@ class TrainDataLoader(Dataset):
         # pad load
         self.ret['padding'] = padding
         self.ret['new_template_img_padding_size'] = (new_w, new_h)
-        self.ret['new_template_img_padding'] = ImageOps.expand(template_img,  border=padding, fill=self.ret['mean_template'])
-        self.ret['new_detection_img_padding']= ImageOps.expand(detection_img, border=padding, fill=self.ret['mean_detection'])
+        self.ret['new_template_img_padding']      = ImageOps.expand(template_img,  border=padding, fill=self.ret['mean_template'])
+        self.ret['new_detection_img_padding']     = ImageOps.expand(detection_img, border=padding, fill=self.ret['mean_detection'])
 
         # crop
         tl = cx + left - template_square_size//2
@@ -300,16 +302,18 @@ class TrainDataLoader(Dataset):
         detection_pil= self.ret['detection_cropped_resized'].copy()
         pos_neg_diff = self.ret['pos_neg_diff'].copy()
 
-        transform = self.get_transform_for_train()
+        transform       = self.get_transform_for_train()
         template_tensor = transform(template_pil)
         detection_tensor= transform(detection_pil)
-        self.ret['template_tensor'] = template_tensor#.unsqueeze(0)
+        self.ret['template_tensor']     = template_tensor#.unsqueeze(0)
 
-        self.ret['detection_tensor']= detection_tensor#.unsqueeze(0)
+        self.ret['detection_tensor']    = detection_tensor#.unsqueeze(0)
 
         self.ret['pos_neg_diff_tensor'] = torch.Tensor(pos_neg_diff)
 
     def __getitem__(self, index):
+        if index == 8627 or index == 8629 or index == 9057 or index == 9058:
+            index += 1
         self._pick_img_pairs(index)
         self._pad_crop_resize()
         self._generate_pos_neg_diff()
@@ -318,12 +322,10 @@ class TrainDataLoader(Dataset):
         return self.ret['template_tensor'], self.ret['detection_tensor'], self.ret['pos_neg_diff_tensor']
 
     def __len__(self):
-        a = 0
+        '''a = 0
         for root, dirs, files in os.walk(self.img_dir_path):
 
             for dirname in dirs:
                 dir_path = os.path.join(root, dirname)
-                a += len(os.listdir(dir_path))
-        return a #len(self.sub_class_dir)
-
-    
+                a += len(os.listdir(dir_path))'''
+        return len(self.sub_class_dir)
