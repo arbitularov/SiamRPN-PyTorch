@@ -119,7 +119,7 @@ class TrackerSiamRPNBIG(Tracker):
         ret = self.data_loader.get_template(target_imgX, self.box)
 
         z = Variable(z_crop.unsqueeze(0))
-        self.kernel_reg, self.kernel_cls = self.net.learn(ret['template_tensor'])#.cuda())
+        self.kernel_reg, self.kernel_cls = self.net.learn(ret['template_tensor'].cuda())
         #self.kernel_reg, self.kernel_cls = self.net.learn(z)#.cuda())
 
         if p.windowing == 'cosine':
@@ -175,7 +175,7 @@ class TrackerSiamRPNBIG(Tracker):
         return res
 
     def tracker_eval(self, net, x_crop, target_pos, target_sz, window, scale_z, p):
-        delta, score = net.inference(self.detection_tensor, self.kernel_reg, self.kernel_cls)
+        delta, score = net.inference(self.detection_tensor.cuda(), self.kernel_reg, self.kernel_cls)
         #delta, score = net.inference(x_crop, self.kernel_reg, self.kernel_cls)
 
         delta = delta.permute(1, 2, 3, 0).contiguous().view(4, -1).data.cpu().numpy()

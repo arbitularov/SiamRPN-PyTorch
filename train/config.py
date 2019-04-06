@@ -3,7 +3,7 @@ class Config(object):
     template_img_size = 127
     detection_img_size = 271
     epoches = 200
-    train_epoch_size = 1000
+    train_epoch_size = 9300
     stride = 8
     lr = 1e-5
     weight_decay = 0.0005

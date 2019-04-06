@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/Users/arbi/Desktop/val', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k/train', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--checkpoint_path', default=None, help='resume')
 
@@ -35,7 +35,7 @@ def main():
     train_loader = DataLoader(  dataset    = data_loader,
                                 batch_size = 1,
                                 shuffle    = True,
-                                num_workers= 1,
+                                num_workers= 8,
                                 pin_memory = True)
 
     '''load weights'''

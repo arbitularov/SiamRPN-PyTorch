@@ -12,7 +12,9 @@ test
 model_e6.pth
 model_e9.pth
 model_e25.pth
+model_e74.pth
 model_got.pth
 model.pth
 test.png
+test1.png
 weights-0690000.pth.tar
