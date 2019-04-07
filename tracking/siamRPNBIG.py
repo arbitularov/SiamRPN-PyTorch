@@ -18,25 +18,25 @@ class SiamRPN(nn.Module):
         self.feature = nn.Sequential(
             # conv1
             nn.Conv2d(3, 64, kernel_size = 11, stride = 2),
-            #nn.BatchNorm2d(64),
+            nn.BatchNorm2d(64),
             nn.ReLU(inplace = True),
             nn.MaxPool2d(kernel_size = 3, stride = 2),
             # conv2
             nn.Conv2d(64, 192, kernel_size = 5),
-            #nn.BatchNorm2d(192),
+            nn.BatchNorm2d(192),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size = 3, stride = 2),
             # conv3
             nn.Conv2d(192, 384, kernel_size = 3),
-            #nn.BatchNorm2d(384),
+            nn.BatchNorm2d(384),
             nn.ReLU(inplace = True),
             # conv4
             nn.Conv2d(384, 256, kernel_size = 3),
-            #nn.BatchNorm2d(256),
+            nn.BatchNorm2d(256),
             nn.ReLU(inplace = True),
             # conv5
-            nn.Conv2d(256, 256, kernel_size = 3))
-            #nn.BatchNorm2d(256))
+            nn.Conv2d(256, 256, kernel_size = 3),
+            nn.BatchNorm2d(256))
 
         self.conv_reg_z = nn.Conv2d(256, 256 * 4 * self.anchor_num, 3, 1)
         self.conv_reg_x = nn.Conv2d(256, 256, 3)

@@ -18,10 +18,11 @@ from got10k.datasets import ImageNetVID, GOT10k
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--checkpoint_path', default=None, help='resume')
-# /home/arbi/desktop/GOT-10k/train # /Users/arbi/Desktop/val # 'experiments/default/model/model_e74.pth'
+# /home/arbi/desktop/GOT-10k
+# 'experiments/default/model/model_e74.pth'
 def main():
 
     '''parameter initialization'''
@@ -32,13 +33,13 @@ def main():
     model = TrackerSiamRPN()
 
     '''setup data loader'''
-    name = 'GOT-10k'
+    name = 'VID'
     assert name in ['VID', 'GOT-10k']
     if name == 'GOT-10k':
         root_dir = args.train_path
         seq_dataset = GOT10k(root_dir, subset='val')
     elif name == 'VID':
-        root_dir = 'data/ILSVRC'
+        root_dir = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
         seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
 
     data_loader  = TrainDataLoader(seq_dataset, name)
