@@ -11,37 +11,38 @@ from data_loader import TrainDataLoader
 
 class SiamRPN(nn.Module):
 
-    def __init__(self, anchor_num=5):
+    def __init__(self, anchor_num = 5):
         super(SiamRPN, self).__init__()
+
         self.anchor_num = anchor_num
         self.feature = nn.Sequential(
             # conv1
-            nn.Conv2d(3, 192, 11, 2),
-            nn.BatchNorm2d(192),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(3, 2),
+            nn.Conv2d(3, 64, kernel_size = 11, stride = 2),
+            #nn.BatchNorm2d(64),
+            nn.ReLU(inplace = True),
+            nn.MaxPool2d(kernel_size = 3, stride = 2),
             # conv2
-            nn.Conv2d(192, 512, 5, 1),
-            nn.BatchNorm2d(512),
+            nn.Conv2d(64, 192, kernel_size = 5),
+            #nn.BatchNorm2d(192),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(3, 2),
+            nn.MaxPool2d(kernel_size = 3, stride = 2),
             # conv3
-            nn.Conv2d(512, 768, 3, 1),
-            nn.BatchNorm2d(768),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(192, 384, kernel_size = 3),
+            #nn.BatchNorm2d(384),
+            nn.ReLU(inplace = True),
             # conv4
-            nn.Conv2d(768, 768, 3, 1),
-            nn.BatchNorm2d(768),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(384, 256, kernel_size = 3),
+            #nn.BatchNorm2d(256),
+            nn.ReLU(inplace = True),
             # conv5
-            nn.Conv2d(768, 512, 3, 1),
-            nn.BatchNorm2d(512))
+            nn.Conv2d(256, 256, kernel_size = 3))
+            #nn.BatchNorm2d(256))
 
-        self.conv_reg_z = nn.Conv2d(512, 512 * 4 * anchor_num, 3, 1)
-        self.conv_reg_x = nn.Conv2d(512, 512, 3)
-        self.conv_cls_z = nn.Conv2d(512, 512 * 2 * anchor_num, 3, 1)
-        self.conv_cls_x = nn.Conv2d(512, 512, 3)
-        self.adjust_reg = nn.Conv2d(4 * anchor_num, 4 * anchor_num, 1)
+        self.conv_reg_z = nn.Conv2d(256, 256 * 4 * self.anchor_num, 3, 1)
+        self.conv_reg_x = nn.Conv2d(256, 256, 3)
+        self.conv_cls_z = nn.Conv2d(256, 256 * 2 * anchor_num, 3, 1)
+        self.conv_cls_x = nn.Conv2d(256, 256, 3)
+        self.adjust_reg = nn.Conv2d(4 * anchor_num, 4 * anchor_num*1, 1)
 
     def forward(self, z, x):
         return self.inference(x, *self.learn(z))
@@ -52,8 +53,8 @@ class SiamRPN(nn.Module):
         kernel_cls = self.conv_cls_z(z)
 
         k = kernel_reg.size()[-1]
-        kernel_reg = kernel_reg.view(4 * self.anchor_num, 512, k, k)
-        kernel_cls = kernel_cls.view(2 * self.anchor_num, 512, k, k)
+        kernel_reg = kernel_reg.view(4 * self.anchor_num, 256, k, k)
+        kernel_cls = kernel_cls.view(2 * self.anchor_num, 256, k, k)
 
         return kernel_reg, kernel_cls
 
