@@ -42,9 +42,9 @@ class SiamRPN(nn.Module):
             nn.BatchNorm2d(512))
 
         self.conv_reg_z = nn.Conv2d(512, 512 * 4 * self.anchor_num, 3, 1)
-        self.conv_reg_x = nn.Conv2d(512, 512, 3) # 8 is batch_size
+        self.conv_reg_x = nn.Conv2d(512, 512, 3)
         self.conv_cls_z = nn.Conv2d(512, 512 * 2 * anchor_num, 3, 1)
-        self.conv_cls_x = nn.Conv2d(512, 512, 3) # 8 is batch_size
+        self.conv_cls_x = nn.Conv2d(512, 512, 3)
         self.adjust_reg = nn.Conv2d(4 * anchor_num, 4 * anchor_num*1, 1)
 
     def forward(self, z, x):
@@ -56,8 +56,8 @@ class SiamRPN(nn.Module):
         kernel_cls = self.conv_cls_z(z)
 
         k = kernel_reg.size()[-1]
-        kernel_reg = kernel_reg.view(4 * self.anchor_num, 512, k, k) # 8 is batch_size
-        kernel_cls = kernel_cls.view(2 * self.anchor_num, 512, k, k) # 8 is batch_size
+        kernel_reg = kernel_reg.view(4 * self.anchor_num, 512, k, k)
+        kernel_cls = kernel_cls.view(2 * self.anchor_num, 512, k, k) 
 
         return kernel_reg, kernel_cls
 
@@ -115,9 +115,9 @@ class TrackerSiamRPN(Tracker):
 
         rout, cout = self.net(template, detection)
 
-        cout = cout.squeeze().permute(1,2,0).reshape(-1, 2) # 8 is batch_size
+        cout = cout.squeeze().permute(1,2,0).reshape(-1, 2)
 
-        rout = rout.squeeze().permute(1,2,0).reshape(-1, 4) # 8 is batch_size
+        rout = rout.squeeze().permute(1,2,0).reshape(-1, 4)
 
         predictions, targets = (cout, rout), pos_neg_diff.squeeze()
 

@@ -41,7 +41,7 @@ def main():
         root_dir = 'data/ILSVRC'
         seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
 
-    data_loader  = TrainDataLoader(seq_dataset)
+    data_loader  = TrainDataLoader(seq_dataset, name)
     train_loader = DataLoader(  dataset    = data_loader,
                                 batch_size = 1,
                                 shuffle    = True,
@@ -76,29 +76,27 @@ def main():
                    sys.exit(0)
 
                 closses.update(closs.cpu().item())
-                closses.closs_array.append(closses.avg)
-
                 rlosses.update(rloss.cpu().item())
-                rlosses.rloss_array.append(rlosses.avg)
-
                 tlosses.update(loss.cpu().item())
-                tlosses.loss_array.append(tlosses.avg)
-
-                steps.update(tlosses.count)
-                steps.steps_array.append(steps.count)
 
                 progbar.set_postfix(closs='{:05.3f}'.format(closses.avg), rloss='{:05.3f}'.format(rlosses.avg), tloss='{:05.3f}'.format(tlosses.avg))
 
                 progbar.update()
+
                 if i >= config.train_epoch_size - 1:
                     '''save plot'''
+                    closses.closs_array.append(closses.avg)
+                    rlosses.rloss_array.append(rlosses.avg)
+                    tlosses.loss_array.append(tlosses.avg)
+                    steps.update(steps.count)
+                    steps.steps_array.append(steps.count)
+
                     steps.plot(exp_name_dir)
 
                     '''save model'''
                     model.save(model, exp_name_dir, epoch)
 
                     break
-
 
 def init_weights(model, init_type='normal', gain=0.02):
     def init_func(m):

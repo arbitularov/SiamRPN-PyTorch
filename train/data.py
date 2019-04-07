@@ -7,6 +7,7 @@ import torch
 import random
 import numpy as np
 import os.path as osp
+from config import Config as config
 from torch.utils.data import Dataset
 from got10k.datasets import ImageNetVID, GOT10k
 from torchvision import datasets, transforms, utils
@@ -19,10 +20,10 @@ class Anchor_ms(object):
         self.w      = feature_w
         self.h      = feature_h
         self.base   = 64                   # base size for anchor box
-        self.stride = 15                   # center point shift stride
-        self.scale  = [1/3, 1/2, 1, 2, 3]  # aspect ratio
+        self.stride = config.stride * 2 - 1# center point shift stride
+        self.scale  = config.ratios        # aspect ratio
         self.anchors= self.gen_anchors()   # xywh
-        self.eps    = 0.01
+        self.eps    = config.eps
 
     def gen_single_anchor(self):
         scale = np.array(self.scale, dtype = np.float32)
@@ -117,16 +118,15 @@ class Anchor_ms(object):
         return over_square/all_square
 
 class TrainDataLoader(Dataset):
-    def __init__(self, seq_dataset, out_feature = 19, max_inter = 80):
+    def __init__(self, seq_dataset, name):
 
-        self.anchor_generator = Anchor_ms(out_feature, out_feature)
-        #self.img_dir_path     = img_dir_path # this is a root dir contain subclass
-        self.max_inter        = max_inter
+        self.anchor_generator = Anchor_ms(config.out_feature, config.out_feature)
+        self.max_inter        = config.max_inter
         self.sub_class_dir    = seq_dataset
         self.anchors          = self.anchor_generator.gen_anchors() #centor
         self.ret              = {}
         self.count            = 0
-        self.max_batches      = 0
+        self.name             = name
 
     def get_transform_for_train(self):
         transform_list = []
@@ -136,8 +136,8 @@ class TrainDataLoader(Dataset):
 
     # tuple
     def _average(self):
-        assert self.ret.__contains__('template_img_path'), 'no template path'
-        assert self.ret.__contains__('detection_img_path'),'no detection path'
+        assert self.ret.__contains__('template_img_path'), 'no template_img_path'
+        assert self.ret.__contains__('detection_img_path'),'no detection_img_path'
         template = Image.open(self.ret['template_img_path'])
         detection= Image.open(self.ret['detection_img_path'])
 
@@ -147,35 +147,27 @@ class TrainDataLoader(Dataset):
         self.ret['mean_detection']= mean_detection
 
     def _pick_img_pairs(self, index_of_subclass):
-        # img_dir_path -> sub_class_dir_path -> template_img_path
-        # use index_of_subclass to select a sub directory
+
         assert index_of_subclass < len(self.sub_class_dir), 'index_of_subclass should less than total classes'
 
         sub_class_img_name = self.sub_class_dir[index_of_subclass][0]
         sub_class_img_num  = len(sub_class_img_name)
         sub_class_gt_name  = 'groundtruth.txt'
 
-        # select template, detection
-        # ++++++++++++++++++++++++++++ add break in sequeence [0,0,0,0] ++++++++++++++++++++++++++++++++++
         status = True
         while status:
             '''if self.max_inter >= sub_class_img_num-1:
                 self.max_inter = sub_class_img_num//2'''
 
             template_index = np.clip(random.choice(range(0, max(1, sub_class_img_num - self.max_inter))), 0, sub_class_img_num-1)
-            #print('template_index', template_index)
+
             detection_index= np.clip(random.choice(range(1, max(2, self.max_inter))) + template_index, 0, sub_class_img_num-1)
-            #print('detection_index', detection_index)
 
             template_img_path, detection_img_path  = sub_class_img_name[template_index], sub_class_img_name[detection_index]
-            #print('template_img_path, detection_img_path', template_img_path, detection_img_path)
-            #template_img_path, detection_img_path = osp.join(sub_class_dir_path, template_name), osp.join(sub_class_dir_path, detection_name)
 
             cords_of_template_abs  = self.sub_class_dir[index_of_subclass][1][template_index]
-            #print('cords_of_template_abs', cords_of_template_abs)
-            cords_of_detection_abs = self.sub_class_dir[index_of_subclass][1][detection_index]
-            #print('cords_of_detection_abs', cords_of_detection_abs)
 
+            cords_of_detection_abs = self.sub_class_dir[index_of_subclass][1][detection_index]
 
             if cords_of_template_abs[2]*cords_of_template_abs[3]*cords_of_detection_abs[2]*cords_of_detection_abs[3] != 0:
                 status = False
@@ -236,10 +228,10 @@ class TrainDataLoader(Dataset):
         self.ret['detection_rbcords_of_padding_image']  = (cx + detection_square_size//2 + left, cy + detection_square_size//2 + top)
 
         # resize
-        self.ret['template_cropped_resized'] = self.ret['template_cropped'].copy().resize((127, 127))
-        self.ret['detection_cropped_resized']= self.ret['detection_cropped'].copy().resize((271, 271))
-        self.ret['template_cropprd_resized_ratio'] = round(127/template_square_size, 2)
-        self.ret['detection_cropped_resized_ratio'] = round(271/detection_square_size, 2)
+        self.ret['template_cropped_resized'] = self.ret['template_cropped'].copy().resize((config.template_img_size, config.template_img_size))   #(127, 127)
+        self.ret['detection_cropped_resized']= self.ret['detection_cropped'].copy().resize((config.detection_img_size, config.detection_img_size))#(271, 271)
+        self.ret['template_cropprd_resized_ratio'] = round(config.template_img_size/template_square_size, 2)
+        self.ret['detection_cropped_resized_ratio'] = round(config.detection_img_size/detection_square_size, 2)
 
         # compute target in detection, and then we will compute IOU
         # whether target in detection part
@@ -312,8 +304,12 @@ class TrainDataLoader(Dataset):
         self.ret['pos_neg_diff_tensor'] = torch.Tensor(pos_neg_diff)
 
     def __getitem__(self, index):
-        if index == 8627 or index == 8629 or index == 9057 or index == 9058:
-            index += 1
+
+        index = random.choice(range(len(self.sub_class_dir)))
+        if self.name == 'GOT-10k':
+            if index == 8627 or index == 8629 or index == 9057 or index == 9058:
+                index += 1
+
         self._pick_img_pairs(index)
         self._pad_crop_resize()
         self._generate_pos_neg_diff()
@@ -322,10 +318,4 @@ class TrainDataLoader(Dataset):
         return self.ret['template_tensor'], self.ret['detection_tensor'], self.ret['pos_neg_diff_tensor']
 
     def __len__(self):
-        '''a = 0
-        for root, dirs, files in os.walk(self.img_dir_path):
-
-            for dirname in dirs:
-                dir_path = os.path.join(root, dirname)
-                a += len(os.listdir(dir_path))'''
-        return len(self.sub_class_dir)
+        return config.train_epoch_size
