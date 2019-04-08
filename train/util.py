@@ -1,5 +1,18 @@
 import matplotlib.pyplot as plt
 
+class Util(object):
+
+    def data_split(seq_datasetVID, seq_datasetGOT):
+        seq_dataset = []
+        for i in seq_datasetVID:
+            seq_dataset.append(i)
+
+        for i, data in enumerate(seq_datasetGOT):
+            seq_dataset.append(data)
+            if i >= 8600:
+                break
+        return seq_dataset
+
 class AverageMeter(object):
     '''Computes and stores the average and current value'''
     def __init__(self):

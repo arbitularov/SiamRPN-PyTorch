@@ -20,7 +20,7 @@ class Config(object):
     '''config for train_siamrpn.py'''
     epoches = 20
     train_epoch_size = 100000
-    lr = 1e-6
+    lr = 1e-5
 
     weight_decay = 0.0005
     momentum = 0.9

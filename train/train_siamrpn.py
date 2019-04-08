@@ -9,6 +9,7 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from torch.nn import init
+from util import Util as util
 from util import AverageMeter
 from net import TrackerSiamRPN
 from data import TrainDataLoader
@@ -32,18 +33,49 @@ def main():
     '''model on gpu'''
     model = TrackerSiamRPN()
 
-    '''setup data loader'''
-    name = 'VID'
-    assert name in ['VID', 'GOT-10k']
+    '''setup train data loader'''
+    name = 'All'
+    assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
-        seq_dataset = GOT10k(root_dir, subset='val')
+        seq_dataset = GOT10k(root_dir, subset='train')
     elif name == 'VID':
         root_dir = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
-        seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
+        seq_dataset = ImageNetVID(root_dir, subset=('train'))
+    elif name == 'All':
+        root_dir_vid = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
+        seq_datasetVID = ImageNetVID(root_dir_vid, subset=('train'))
+        root_dir_got = args.train_path
+        seq_datasetGOT = GOT10k(root_dir_got, subset='train')
+        seq_dataset = util.data_split(seq_datasetVID, seq_datasetGOT)
+    print('seq_dataset', len(seq_dataset))
 
-    data_loader  = TrainDataLoader(seq_dataset, name)
-    train_loader = DataLoader(  dataset    = data_loader,
+    train_data  = TrainDataLoader(seq_dataset, name)
+    train_loader = DataLoader(  dataset    = train_data,
+                                batch_size = 1,
+                                shuffle    = True,
+                                num_workers= 16,
+                                pin_memory = True)
+
+    '''setup val data loader'''
+    name = 'All'
+    assert name in ['VID', 'GOT-10k', 'All']
+    if name == 'GOT-10k':
+        root_dir = args.train_path
+        seq_dataset_val = GOT10k(root_dir, subset='val')
+    elif name == 'VID':
+        root_dir = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
+        seq_dataset_val = ImageNetVID(root_dir, subset=('val'))
+    elif name == 'All':
+        root_dir_vid = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
+        seq_datasetVID = ImageNetVID(root_dir_vid, subset=('val'))
+        root_dir_got = args.train_path
+        seq_datasetGOT = GOT10k(root_dir_got, subset='val')
+        seq_dataset_val = util.data_split(seq_datasetVID, seq_datasetGOT)
+    print('seq_dataset_val', len(seq_dataset_val))
+
+    val_data  = TrainDataLoader(seq_dataset_val, name)
+    val_loader = DataLoader(  dataset    = val_data,
                                 batch_size = 1,
                                 shuffle    = True,
                                 num_workers= 16,
@@ -68,7 +100,6 @@ def main():
         with tqdm(total=config.train_epoch_size) as progbar:
             for i, dataset in enumerate(train_loader):
 
-                index_list = range(data_loader.__len__())
                 closs, rloss, loss, cur_lr = model.step(epoch, dataset, backward=True)
 
                 closs_ = closs.cpu().item()
