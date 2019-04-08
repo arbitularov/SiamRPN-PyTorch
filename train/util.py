@@ -24,6 +24,10 @@ class AverageMeter(object):
     closs_array = []
     rloss_array = []
 
+    loss_array_val  = []
+    closs_array_val = []
+    rloss_array_val = []
+
     def reset(self):
         self.val = 0
         self.avg = 0
@@ -37,10 +41,28 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
     '''setup plot'''
-    def plot(self, exp_name_dir, step = steps_array, loss = loss_array, closs = closs_array, rloss = rloss_array, title = "Siamese RPN", ylabel = 'error',  xlabel = 'epoch', show=False):
-        plt.plot(step, loss, 'r', label='loss', color='blue')
-        plt.plot(step, closs, 'r', label='closs', color='red')
-        plt.plot(step, rloss, 'r', label='rloss', color='black')
+    def plot(self,  exp_name_dir,
+                    step   = steps_array,
+                    train_loss   = loss_array,
+                    train_closs  = closs_array,
+                    train_rloss  = rloss_array,
+
+                    val_loss   = loss_array_val,
+                    val_closs  = closs_array_val,
+                    val_rloss  = rloss_array_val,
+
+                    title  = "Siamese RPN",
+                    ylabel = 'error',
+                    xlabel = 'epoch',
+                    show   = False):
+        plt.plot(step, train_loss, 'r', label='train loss', color='blue')
+        plt.plot(step, train_closs, 'r', label='train closs', color='red')
+        plt.plot(step, train_rloss, 'r', label='train rloss', color='black')
+
+        plt.plot(step, val_loss, 'k--', label='val loss', color='blue')
+        plt.plot(step, val_closs, 'k--', label='val closs', color='red')
+        plt.plot(step, val_rloss, 'k--', label='val rloss', color='black')
+
         plt.title(title)
         plt.ylabel(ylabel)
         plt.xlabel(xlabel)

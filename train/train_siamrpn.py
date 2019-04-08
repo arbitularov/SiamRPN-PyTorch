@@ -19,10 +19,10 @@ from got10k.datasets import ImageNetVID, GOT10k
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--checkpoint_path', default=None, help='resume')
-# /home/arbi/desktop/GOT-10k
+# /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop
 # 'experiments/default/model/model_e74.pth'
 def main():
 
@@ -34,11 +34,11 @@ def main():
     model = TrackerSiamRPN()
 
     '''setup train data loader'''
-    name = 'All'
+    name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
-        seq_dataset = GOT10k(root_dir, subset='train')
+        seq_dataset = GOT10k(root_dir, subset='val') #train
     elif name == 'VID':
         root_dir = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
         seq_dataset = ImageNetVID(root_dir, subset=('train'))
@@ -58,7 +58,7 @@ def main():
                                 pin_memory = True)
 
     '''setup val data loader'''
-    name = 'All'
+    name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
@@ -120,13 +120,48 @@ def main():
                     closses.closs_array.append(closses.avg)
                     rlosses.rloss_array.append(rlosses.avg)
                     tlosses.loss_array.append(tlosses.avg)
+                    '''steps.update(steps.count)
+                    steps.steps_array.append(steps.count)
+
+                    steps.plot(exp_name_dir)'''
+
+                    '''save model'''
+                    model.save(model, exp_name_dir, epoch)
+
+                    break
+
+        '''val phase'''
+        with tqdm(total=config.val_epoch_size) as progbar:
+            print('Val epoch {}/{}'.format(epoch+1, config.epoches))
+            for i, dataset in enumerate(val_loader):
+
+                closs, rloss, loss, cur_lr = model.step(epoch, dataset, backward=False)
+
+                closs_ = closs.cpu().item()
+
+                if np.isnan(closs_):
+                   sys.exit(0)
+
+                closses.update(closs.cpu().item())
+                rlosses.update(rloss.cpu().item())
+                tlosses.update(loss.cpu().item())
+
+                progbar.set_postfix(closs='{:05.3f}'.format(closses.avg), rloss='{:05.3f}'.format(rlosses.avg), tloss='{:05.3f}'.format(tlosses.avg))
+
+                progbar.update()
+
+                if i >= config.train_epoch_size - 1:
+                    '''save plot'''
+                    closses.closs_array_val.append(closses.avg)
+                    rlosses.rloss_array_val.append(rlosses.avg)
+                    tlosses.loss_array_val.append(tlosses.avg)
                     steps.update(steps.count)
                     steps.steps_array.append(steps.count)
 
                     steps.plot(exp_name_dir)
 
                     '''save model'''
-                    model.save(model, exp_name_dir, epoch)
+                    '''model.save(model, exp_name_dir, epoch)'''
 
                     break
 
