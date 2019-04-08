@@ -18,9 +18,9 @@ class Config(object):
     '''config for net.py'''
 
     '''config for train_siamrpn.py'''
-    epoches = 20
-    train_epoch_size = 10
-    val_epoch_size = 10
+    epoches = 200
+    train_epoch_size = 50000
+    val_epoch_size = 50000
     lr = 1e-5
 
     weight_decay = 0.0005
