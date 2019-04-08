@@ -33,6 +33,6 @@ class MultiBoxLoss(nn.Module):
 
         rloss = torch.div(torch.sum(rloss[pos_index]), 16)
 
-        loss = closs + rloss
+        loss = closs + 10*rloss
 
         return closs, rloss, loss #, reg_pred, reg_target, pos_index, neg_index
