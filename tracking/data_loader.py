@@ -146,7 +146,7 @@ class TrainDataLoader(object):
         cx, cy, tw, th = np.array([t1[0]+t1[2]//2, t1[1]+t1[3]//2, t1[2], t1[3]], np.float32)
 
         a = (tw + th)/2
-        p = round(a*0.5, 2)
+        p = round(a, 2)
         template_square_size  = int(np.sqrt((tw + p)*(th + p)))
         detection_square_size = int(template_square_size * 2)
 
@@ -186,7 +186,7 @@ class TrainDataLoader(object):
         t1 = box
         cx, cy, tw, th = np.array([t1[0]+t1[2]//2, t1[1]+t1[3]//2, t1[2], t1[3]], np.float32)
 
-        p = round(((tw + th)/2), 2)
+        p = round(((tw + th)), 2)
 
         template_square_size  = int(np.sqrt((tw + p)*(th + p)))
         detection_square_size = int(template_square_size * 2)
@@ -232,6 +232,7 @@ class TrainDataLoader(object):
 
         detection_cropped_resized_ratio = round(271/detection_square_size, 2)
 
+        self.ret['detection_cropped_resized_ratio'] = detection_cropped_resized_ratio
         # compute target in detection, and then we will compute IOU
         # whether target in detection part
         x, y, w, h = cx, cy, tw, th

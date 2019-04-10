@@ -82,6 +82,8 @@ class Util(object):
         else:
             im_patch = im_patch_original
 
+        cv2.imshow('foto', im_patch)
+
         def im_to_torch(img):
 
             def to_torch(ndarray):
@@ -101,3 +103,17 @@ class Util(object):
 
     def x1y1_wh_to_xy_wh(rect):
         return np.array([rect[0]+rect[2]/2, rect[1]+rect[3]/2]), np.array([rect[2], rect[3]])  # 0-index
+
+    def box_transform_inv(anchors, offset):
+        anchor_xctr = anchors[:, :1]
+        anchor_yctr = anchors[:, 1:2]
+        anchor_w = anchors[:, 2:3]
+        anchor_h = anchors[:, 3:]
+        offset_x, offset_y, offset_w, offset_h = offset[:, :1], offset[:, 1:2], offset[:, 2:3], offset[:, 3:],
+
+        box_cx = anchor_w * offset_x + anchor_xctr
+        box_cy = anchor_h * offset_y + anchor_yctr
+        box_w = anchor_w * np.exp(offset_w)
+        box_h = anchor_h * np.exp(offset_h)
+        box = np.hstack([box_cx, box_cy, box_w, box_h])
+        return box

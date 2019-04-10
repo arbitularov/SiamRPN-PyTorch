@@ -6,11 +6,14 @@ import torch
 import random
 import numpy as np
 import torch.nn as nn
+from util import util
 from loss import MultiBoxLoss
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-from config import Config as config
+from config import config
 from got10k.trackers import Tracker
+from network import SiameseAlexNet
+from loss import rpn_smoothL1, rpn_cross_entropy_balance
 
 class SiamRPN(nn.Module):
 
@@ -82,7 +85,8 @@ class TrackerSiamRPN(Tracker):
         self.device = torch.device('cuda:0' if self.cuda else 'cpu')
 
         '''setup model'''
-        self.net = SiamRPN()
+        #self.net = SiamRPN()
+        self.net = SiameseAlexNet()
         if self.cuda:
             self.net = self.net.cuda()
 
@@ -100,6 +104,12 @@ class TrackerSiamRPN(Tracker):
             momentum     = config.momentum,
             weight_decay = config.weight_decay)
 
+        self.anchors     = util.generate_anchors(   config.total_stride,
+                                                    config.anchor_base_size,
+                                                    config.anchor_scales,
+                                                    config.anchor_ratios,
+                                                    config.anchor_valid_scope)
+
     def step(self, epoch, dataset, backward=True):
 
         if backward:
@@ -109,26 +119,35 @@ class TrackerSiamRPN(Tracker):
 
         cur_lr = adjust_learning_rate(config.lr, self.optimizer, epoch, gamma=0.1)
 
-        template, detection, pos_neg_diff = dataset
+        template, detection, regression_target, conf_target = dataset
         if self.cuda:
-            template, detection, pos_neg_diff = template.cuda(), detection.cuda(), pos_neg_diff.cuda()
+            template, detection = template.cuda(), detection.cuda()
 
-        rout, cout = self.net(template, detection)
+        pred_score, pred_regression = self.net(template, detection)
 
-        cout = cout.squeeze().permute(1,2,0).reshape(-1, 2)
+        #pred_conf = cout.permute(0,2,3,1).reshape(1,-1, 2)
 
-        rout = rout.squeeze().permute(1,2,0).reshape(-1, 4)
+        #pred_offset = rout.permute(0,2,3,1).reshape(1,-1, 4)
 
-        predictions, targets = (cout, rout), pos_neg_diff.squeeze()
+        pred_conf = pred_score.reshape(-1, 2, config.anchor_num * config.score_size * config.score_size).permute(0,
+                                                                                                                 2,
+                                                                                                                 1)
+        pred_offset = pred_regression.reshape(-1, 4,
+                                                 config.anchor_num * config.score_size * config.score_size).permute(0,
+                                                                                                                    2,
+                                                                                                                    1)
 
-        closs, rloss, loss = self.criterion(predictions, targets)
+        cls_loss = rpn_cross_entropy_balance(pred_conf, conf_target, config.num_pos, config.num_neg, self.anchors,
+                                                 ohem_pos=config.ohem_pos, ohem_neg=config.ohem_neg)
+        reg_loss = rpn_smoothL1(pred_offset, regression_target, conf_target, config.num_pos, ohem=config.ohem_reg)
+        loss = cls_loss + config.lamb * reg_loss
 
         if backward:
             self.optimizer.zero_grad()
             loss.backward(retain_graph=True)
             self.optimizer.step()
 
-        return closs, rloss, loss, cur_lr
+        return cls_loss, reg_loss, loss, cur_lr
 
     '''save model'''
     def save(self,model, exp_name_dir, epoch):
