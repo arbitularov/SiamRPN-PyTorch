@@ -89,7 +89,7 @@ class TrackerSiamRPN(Tracker):
         self.net = SiameseAlexNet()
         if self.cuda:
             self.net = self.net.cuda()
-
+        
         if net_path is not None:
             self.net.load_state_dict(torch.load(
                 net_path, map_location = lambda storage, loc: storage ))

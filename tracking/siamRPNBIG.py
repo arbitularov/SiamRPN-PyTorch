@@ -2,9 +2,11 @@ import cv2
 import torch
 import numpy as np
 import torch.nn as nn
-from util import Util as util
+from util import util
 import torch.nn.functional as F
 from config import TrackerConfig
+import torchvision.transforms as transforms
+from custom_transforms import ToTensor
 from config import config
 from torch.autograd import Variable
 from got10k.trackers import Tracker
@@ -72,108 +74,105 @@ class SiamRPN(nn.Module):
         return out_reg, out_cls
 
 class TrackerSiamRPNBIG(Tracker):
-    def __init__(self, params, net_path = None, **kargs):
+    def __init__(self, params, model_path = None, **kargs):
         super(TrackerSiamRPNBIG, self).__init__(name='SiamRPN', is_deterministic=True)
 
-        '''setup model'''
-        #self.net = SiamRPN()
         self.model = SiameseAlexNet()
-        self.model.eval()
-        self.data_loader = TrainDataLoader(self.model, params)
 
-        '''setup GPU device if available'''
         self.cuda = torch.cuda.is_available()
         self.device = torch.device('cuda:0' if self.cuda else 'cpu')
+
+        checkpoint = torch.load(model_path, map_location = self.device)
+        print("1")
+        if 'model' in checkpoint.keys():
+            self.model.load_state_dict(torch.load(model_path, map_location = self.device)['model'])
+        else:
+            self.model.load_state_dict(torch.load(model_path, map_location = self.device))
+
+
         if self.cuda:
-            self.model.cuda()
+            self.model = self.model.cuda()
+        self.model.eval()
+        self.transforms = transforms.Compose([
+            ToTensor()
+        ])
 
-        if net_path is not None:
-            self.model.load_state_dict(torch.load(net_path, map_location=lambda storage, loc: storage))
+        valid_scope = 2 * config.valid_scope + 1
+        self.anchors = util.generate_anchors(   config.total_stride,
+                                                config.anchor_base_size,
+                                                config.anchor_scales,
+                                                config.anchor_ratios,
+                                                valid_scope)
+        self.window = np.tile(np.outer(np.hanning(config.score_size), np.hanning(config.score_size))[None, :],
+                              [config.anchor_num, 1, 1]).flatten()
 
-        #self.net.eval()
+    def _cosine_window(self, size):
+        """
+            get the cosine window
+        """
+        cos_window = np.hanning(int(size[0]))[:, np.newaxis].dot(np.hanning(int(size[1]))[np.newaxis, :])
+        cos_window = cos_window.astype(np.float32)
+        cos_window /= np.sum(cos_window)
+        return cos_window
 
-        anchor_ratios = np.array([0.33, 0.5, 1, 2, 3])
-        anchor_scales = np.array([8, ])
-        anchor_num = len(anchor_scales) * len(anchor_ratios)
+    def init(self, frame, bbox):
 
-        self.window = np.tile(np.outer(np.hanning(19), np.hanning(19))[None, :],
-                              [anchor_num, 1, 1]).flatten()
+        """ initialize siamfc tracker
+        Args:
+            frame: an RGB image
+            bbox: one-based bounding box [x, y, width, height]
+        """
+        frame = np.asarray(frame)
+        bbox[0] = bbox[0] + bbox[2]/2
+        bbox[1] = bbox[1] + bbox[3]/2
+        print('bbox', bbox)
+        #self.pos = np.array([bbox[0] + bbox[2] / 2 - 1 / 2, bbox[1] + bbox[3] / 2 - 1 / 2])  # center x, center y, zero based
+        self.pos = np.array([bbox[0], bbox[1]])  # center x, center y, zero based
+        print('self.pos', self.pos)
+        self.target_sz = np.array([bbox[2], bbox[3]])  # width, height
+        self.bbox = np.array([bbox[0] + bbox[2] / 2 - 1 / 2, bbox[1] + bbox[3] / 2 - 1 / 2, bbox[2], bbox[3]])
 
-    def init(self, target_img, target_box):
-
-        self.pos = np.array(
-            [target_box[0] + target_box[2] / 2 - 1 / 2, target_box[1] + target_box[3] / 2 - 1 / 2])  # center x, center y, zero based
-        # self.pos = np.array(
-        #     [bbox[0] + bbox[2] // 2, bbox[1] + bbox[3] // 2])  # same to original code
-        self.target_sz = np.array([target_box[2], target_box[3]])  # width, height
-        self.bbox = np.array([target_box[0] + target_box[2] / 2 - 1 / 2, target_box[1] + target_box[3] / 2 - 1 / 2, target_box[2], target_box[3]])
-        # self.bbox = np.array(
-        #     [bbox[0] + bbox[2] // 2, bbox[1] + bbox[3] // 2, bbox[2], bbox[3]])  # same to original code
-        self.origin_target_sz = np.array([target_box[2], target_box[3]])
+        self.origin_target_sz = np.array([bbox[2], bbox[3]])
         # get exemplar img
-        self.img_mean = np.mean(target_img, axis=(0, 1))
+        self.img_mean = np.mean(frame, axis=(0, 1))
 
-        self.box = target_box
-        target_imgX = target_img
+        exemplar_img, _, _ = util.get_exemplar_image(   frame,
+                                                        bbox,
+                                                        config.template_img_size,
+                                                        config.context_amount,
+                                                        self.img_mean)
 
-        target_img = np.asarray(target_img)
+        cv2.imshow('exemplar_img', exemplar_img)
+        # get exemplar feature
+        exemplar_img = self.transforms(exemplar_img)[None, :, :, :]
+        if self.cuda:
+            self.model.track_init(exemplar_img.cuda())
+        else:
+            self.model.track_init(exemplar_img)
 
-        target_centor, target_size = util.x1y1_wh_to_xy_wh(target_box) # x1y1wh -> xywh # convert to bauding box centor
+    def update(self, frame):
+        """track object based on the previous frame
+        Args:
+            frame: an RGB image
 
-        self.state = dict()
-        p = TrackerConfig()
-        self.state['target_img_h'] = target_img.shape[0]
-        self.state['target_img_w'] = target_img.shape[1]
-
-        if ((target_size[0] * target_size[1]) / float(self.state['target_img_h'] * self.state['target_img_w'])) < 0.004:
-            p.detection_img_size = 287  # small object big search region
-
-        p.score_size = int((p.detection_img_size - p.template_img_size) / p.total_stride + 1)
-
-        p.anchor = util.generate_anchor(p.total_stride, p.scales, p.ratios, p.score_size)
-        #print('p.anchor', p.anchor)
-
-
-        avg_chans = np.mean(target_img, axis=(0, 1))
-
-        wc_z = target_size[0] + p.context_amount * sum(target_size)
-        print('wc_z', wc_z)
-        hc_z = target_size[1] + p.context_amount * sum(target_size)
-        print('hc_z', hc_z)
-
-        s_z = round(np.sqrt(wc_z * hc_z))
-
-        # initialize the exemplar
-        z_crop = util.get_subwindow_tracking(target_img, target_centor, p.template_img_size, s_z, avg_chans)
-
-        self.ret = self.data_loader.get_template(target_imgX, self.box)
+        Returns:
+            bbox: tuple of 1-based bounding box(xmin, ymin, xmax, ymax)
+        """
+        frame = np.asarray(frame)
+        instance_img, _, _, scale_x = util.get_instance_image(  frame,
+                                                                self.bbox,
+                                                                config.template_img_size,
+                                                                config.detection_img_size,
+                                                                config.context_amount,
+                                                                self.img_mean)
+        cv2.imshow('instance_img', instance_img)
 
 
-
-        '''z = Variable(z_crop.unsqueeze(0))
-        self.kernel_reg, self.kernel_cls = self.net.learn(ret['template_tensor'])#.cuda())'''
-        #self.kernel_reg, self.kernel_cls = self.net.learn(z)#.cuda())
-
-        if p.windowing == 'cosine':
-            window = np.outer(np.hanning(p.score_size), np.hanning(p.score_size))
-        elif p.windowing == 'uniform':
-            window = np.ones((p.score_size, p.score_size))
-        window = np.tile(window.flatten(), p.anchor_num)
-
-        self.state['p'] = p
-        self.state['avg_chans'] = avg_chans
-        self.state['window'] = window
-        self.state['target_centor'] = target_centor
-        self.state['target_size'] = target_size
-
-        self.model.track_init(self.ret['template_tensor'])
-
-    def update(self, im):
-        p = self.state['p']
-        ret = self.data_loader.__get__(im, self.box)
-        self.detection_tensor = ret['detection_tensor']
-
-        pred_score, pred_regression = self.model.track(self.detection_tensor)
+        instance_img = self.transforms(instance_img)[None, :, :, :]
+        if self.cuda:
+            pred_score, pred_regression = self.model.track(instance_img.cuda())
+        else:
+            pred_score, pred_regression = self.model.track(instance_img)
 
         pred_conf = pred_score.reshape(-1, 2, config.anchor_num * config.score_size * config.score_size).permute(0,
                                                                                                                  2,
@@ -182,18 +181,8 @@ class TrackerSiamRPNBIG(Tracker):
                                               config.anchor_num * config.score_size * config.score_size).permute(0,
                                                                                                                  2,
                                                                                                                  1)
-
-        scale_x = ret['detection_cropped_resized_ratio']
-
-
-        #rout, cout = self.net.inference(self.detection_tensor, self.kernel_reg, self.kernel_cls)
-
-        #pred_conf = cout.permute(0,2,3,1).reshape(1,-1, 2)
-
-        #pred_offset = rout.permute(0,2,3,1).reshape(1,-1, 4)
-
         delta = pred_offset[0].cpu().detach().numpy()
-        box_pred = util.box_transform_inv(p.anchor, delta)
+        box_pred = util.box_transform_inv(self.anchors, delta)
         score_pred = F.softmax(pred_conf, dim=2)[0, :, 1].cpu().detach().numpy()
 
         def change(r):
@@ -211,29 +200,35 @@ class TrackerSiamRPNBIG(Tracker):
 
         s_c = change(sz(box_pred[:, 2], box_pred[:, 3]) / (sz_wh(self.target_sz * scale_x)))  # scale penalty
         r_c = change((self.target_sz[0] / self.target_sz[1]) / (box_pred[:, 2] / box_pred[:, 3]))  # ratio penalty
-        penalty = np.exp(-(r_c * s_c - 1.) * p.penalty_k)
+        penalty = np.exp(-(r_c * s_c - 1.) * config.penalty_k)
         pscore = penalty * score_pred
-        pscore = pscore * (1 - p.window_influence) + self.window * p.window_influence
+        pscore = pscore * (1 - config.window_influence) + self.window * config.window_influence
         best_pscore_id = np.argmax(pscore)
         target = box_pred[best_pscore_id, :] / scale_x
 
-        lr = penalty[best_pscore_id] * score_pred[best_pscore_id] * p.lr_box
+        lr = penalty[best_pscore_id] * score_pred[best_pscore_id] * config.lr_box
 
-        res_x = np.clip(target[0] + self.pos[0], 0, im.size[1])
-        res_y = np.clip(target[1] + self.pos[1], 0, im.size[0])
+        res_x = np.clip(target[0] + self.pos[0], 0, frame.shape[1])
+        res_y = np.clip(target[1] + self.pos[1], 0, frame.shape[0])
 
-        res_w = np.clip(self.target_sz[0] * (1 - lr) + target[2] * lr, p.min_scale * self.origin_target_sz[0],
-                        p.max_scale * self.origin_target_sz[0])
-        res_h = np.clip(self.target_sz[1] * (1 - lr) + target[3] * lr, p.min_scale * self.origin_target_sz[1],
-                        p.max_scale * self.origin_target_sz[1])
+        res_w = np.clip(self.target_sz[0] * (1 - lr) + target[2] * lr, config.min_scale * self.origin_target_sz[0],
+                        config.max_scale * self.origin_target_sz[0])
+        res_h = np.clip(self.target_sz[1] * (1 - lr) + target[3] * lr, config.min_scale * self.origin_target_sz[1],
+                        config.max_scale * self.origin_target_sz[1])
 
         self.pos = np.array([res_x, res_y])
         self.target_sz = np.array([res_w, res_h])
+        '''res_x = res_x - res_w/2
+        res_y = res_y - res_h/2'''
         bbox = np.array([res_x, res_y, res_w, res_h])
+        print('bbox', bbox)
+        self.bbox = (
+            np.clip(bbox[0], 0, frame.shape[1]).astype(np.float64),
+            np.clip(bbox[1], 0, frame.shape[0]).astype(np.float64),
+            np.clip(bbox[2], 10, frame.shape[1]).astype(np.float64),
+            np.clip(bbox[3], 10, frame.shape[0]).astype(np.float64))
 
-        self.bbox = (   np.clip(bbox[0], 0, im.size[1]).astype(np.float64),
-                        np.clip(bbox[1], 0, im.size[0]).astype(np.float64),
-                        np.clip(bbox[2], 10, im.size[1]).astype(np.float64),
-                        np.clip(bbox[3], 10, im.size[0]).astype(np.float64))
-
-        return self.bbox
+        res_x = res_x - res_w/2
+        res_y = res_y - res_h/2
+        bbox = np.array([res_x, res_y, res_w, res_h])
+        return bbox

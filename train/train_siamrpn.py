@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
 parser.add_argument('--train_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--checkpoint_path', default=None, help='resume')
+parser.add_argument('--checkpoint_path', default='../siamrpn_7.pth', help='resume')
 # /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop
 # 'experiments/default/model/model_e74.pth'
 def main():
@@ -52,9 +52,9 @@ def main():
 
     train_data  = TrainDataLoader(seq_dataset, name)
     train_loader = DataLoader(  dataset    = train_data,
-                                batch_size = 8,
+                                batch_size = 1,
                                 shuffle    = True,
-                                num_workers= 16,
+                                num_workers= 1,
                                 pin_memory = True)
 
     '''setup val data loader'''
@@ -85,7 +85,12 @@ def main():
 
     if not args.checkpoint_path == None:
         assert os.path.isfile(args.checkpoint_path), '{} is not valid checkpoint_path'.format(args.checkpoint_path)
-        model.net.load_state_dict(torch.load(args.checkpoint_path, map_location=lambda storage, loc: storage))
+        checkpoint = torch.load(args.checkpoint_path, map_location='cpu')
+        if 'model' in checkpoint.keys():
+            model.net.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu')['model'])
+        else:
+            model.net.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu'))
+        #model.net.load_state_dict(torch.load(args.checkpoint_path, map_location=lambda storage, loc: storage))
         print('You are loading the model.load_state_dict')
 
     elif config.pretrained_model:
@@ -123,7 +128,7 @@ def main():
                 rlosses.update(rloss.cpu().item())
                 tlosses.update(loss.cpu().item())
 
-                progbar.set_postfix(closs='{:05.3f}'.format(closses.avg), rloss='{:05.3f}'.format(rlosses.avg), tloss='{:05.3f}'.format(tlosses.avg))
+                progbar.set_postfix(closs='{:05.3f}'.format(closses.avg), rloss='{:05.5f}'.format(rlosses.avg), tloss='{:05.3f}'.format(tlosses.avg))
 
                 progbar.update()
 

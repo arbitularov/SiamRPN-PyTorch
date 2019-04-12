@@ -9,8 +9,8 @@ parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Tracking')
 
 parser.add_argument('--tracker_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--net_path', default='../train/experiments/default/model/model_e1.pth', metavar='DIR',help='path to weight')
-# ../train/experiments/default/model/model_e1.pth # ../model.pth #../model_e25.pth
+parser.add_argument('--net_path', default='../siamrpn_25.pth', metavar='DIR',help='path to weight')
+# ../train/experiments/default/model/model_e1.pth # ../model.pth #../siamrpn_7.pth
 # /Users/arbi/Desktop/val
 parser.add_argument('--visualize', default=True, help='visualize')
 
@@ -25,7 +25,7 @@ if __name__ == '__main__':
         params = json.load(data_file)
 
     '''setup tracker'''
-    tracker = TrackerSiamRPNBIG(params, net_path = args.net_path)
+    tracker = TrackerSiamRPNBIG(params, args.net_path)
 
     '''setup experiments'''
     # 7 datasets with different versions

@@ -2,11 +2,13 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 import torchvision.transforms as transforms
+from custom_transforms import ToTensor
 
 from torchvision.models import alexnet
 from torch.autograd import Variable
 from torch import nn
 
+from IPython import embed
 from config import config
 
 
@@ -40,6 +42,16 @@ class SiameseAlexNet(nn.Module):
         self.conv_cls2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=0)
         self.conv_r2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=0)
         self.regress_adjust = nn.Conv2d(4 * self.anchor_num, 4 * self.anchor_num, 1)
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                # nn.init.kaiming_normal_(m.weight.data, mode='fan_out', nonlinearity='relu')
+                nn.init.normal_(m.weight.data, std=0.0005)
+                nn.init.normal_(m.bias.data, std=0.0005)
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
 
     def forward(self, template, detection):
         N = template.size(0)

@@ -26,6 +26,11 @@ class Config(object):
     window_influence = 0.42
     eps = 0.01
 
+    max_translate = 12
+    scale_resize = 0.15
+    gray_ratio = 0.25
+    exem_stretch = False
+
     '''config for net.py'''
     num_pos = 16
     num_neg = 48

@@ -12,10 +12,12 @@ from config import config
 from torch.utils.data import Dataset
 from got10k.datasets import ImageNetVID, GOT10k
 from torchvision import datasets, transforms, utils
-from PIL import Image, ImageOps, ImageStat, ImageDraw
+from got10k.datasets import ImageNetVID, GOT10k
+from custom_transforms import Normalize, ToTensor, RandomStretch, \
+    RandomCrop, CenterCrop, RandomBlur, ColorAug
 
 class TrainDataLoader(Dataset):
-    def __init__(self, seq_dataset, name):
+    def __init__(self, seq_dataset, name = 'GOT-10k'):
 
         self.max_inter        = config.max_inter
         self.sub_class_dir    = seq_dataset
@@ -34,17 +36,6 @@ class TrainDataLoader(Dataset):
         transform_list.append(transforms.Normalize(mean=(0.5,0.5,0.5), std=(0.5,0.5,0.5)))
         return transforms.Compose(transform_list)
 
-    # tuple
-    def _average(self):
-        assert self.ret.__contains__('template_img_path'), 'no template_img_path'
-        assert self.ret.__contains__('detection_img_path'),'no detection_img_path'
-        template = Image.open(self.ret['template_img_path'])
-        detection= Image.open(self.ret['detection_img_path'])
-
-        mean_template = tuple(map(round, ImageStat.Stat(template).mean))
-        mean_detection= tuple(map(round, ImageStat.Stat(detection).mean))
-        self.ret['mean_template'] = mean_template
-        self.ret['mean_detection']= mean_detection
 
     def _pick_img_pairs(self, index_of_subclass):
 
@@ -60,19 +51,9 @@ class TrainDataLoader(Dataset):
             if self.max_inter >= video_num-1:
                 self.max_inter = video_num//2
 
-            '''template_index = np.clip(random.choice(range(0, max(1, video_num - self.max_inter))), 0, video_num-1)
+            template_index = np.clip(random.choice(range(0, max(1, video_num - self.max_inter))), 0, video_num-1)
 
             detection_index= np.clip(random.choice(range(1, max(2, self.max_inter))) + template_index, 0, video_num-1)
-
-            template_img_path, detection_img_path  = video_name[template_index], video_name[detection_index]
-
-            template_gt  = video_gt[template_index]
-
-            detection_gt = video_gt[detection_index]'''
-
-            template_index = random.choice(range(video_num-2))
-
-            detection_index= template_index + 2
 
             template_img_path, detection_img_path  = video_name[template_index], video_name[detection_index]
 
@@ -94,106 +75,175 @@ class TrainDataLoader(Dataset):
         self.ret['template_target_xywh']   = np.array([t1[0]+t1[2]//2, t1[1]+t1[3]//2, t1[2], t1[3]], np.float32)
         self.ret['detection_target_xywh']  = np.array([t2[0]+t2[2]//2, t2[1]+t2[3]//2, t2[2], t2[3]], np.float32)
         self.ret['anchors'] = self.anchors
-        self._average()
+        #self._average()
 
-    def _pad_crop_resize(self):
-        template_img, detection_img = Image.open(self.ret['template_img_path']), Image.open(self.ret['detection_img_path'])
+    def open(self):
 
-        w, h = template_img.size
-        cx, cy, tw, th = self.ret['template_target_xywh']
-        p = round((tw + th)/2, 2)
-        template_square_size  = int(np.sqrt((tw + p)*(th + p))) #a
-        detection_square_size = int(template_square_size * 2)   #A =2a
+        '''template'''
 
-        # pad
-        detection_lt_x, detection_lt_y = cx - detection_square_size//2, cy - detection_square_size//2
-        detection_rb_x, detection_rb_y = cx + detection_square_size//2, cy + detection_square_size//2
-        left   = -detection_lt_x if detection_lt_x < 0 else 0
-        top    = -detection_lt_y if detection_lt_y < 0 else 0
-        right  =  detection_rb_x - w if detection_rb_x > w else 0
-        bottom =  detection_rb_y - h if detection_rb_y > h else 0
-        padding = tuple(map(int, [left, top, right, bottom]))
-        new_w, new_h = left + right + w, top + bottom + h
+        template_img = cv2.imread(self.ret['template_img_path'])
+        '''if np.random.rand(1) < config.gray_ratio:
+            template_img = cv2.cvtColor(template_img, cv2.COLOR_RGB2GRAY)
+            template_img = cv2.cvtColor(template_img, cv2.COLOR_GRAY2RGB)'''
+        #print("1")
+        '''if config.exem_stretch:
+            template_img, _, _ = self.RandomStretch(template_img, 0, 0)'''
 
-        # pad load
-        self.ret['padding'] = padding
-        self.ret['new_template_img_padding_size'] = (new_w, new_h)
-        self.ret['new_template_img_padding']      = ImageOps.expand(template_img,  border=padding, fill=self.ret['mean_template'])
-        self.ret['new_detection_img_padding']     = ImageOps.expand(detection_img, border=padding, fill=self.ret['mean_detection'])
+        img_mean = np.mean(template_img, axis=(0, 1))
 
-        # crop
-        tl = cx + left - template_square_size//2
-        tt = cy + top  - template_square_size//2
-        tr = new_w - tl - template_square_size
-        tb = new_h - tt - template_square_size
-        self.ret['template_cropped'] = ImageOps.crop(self.ret['new_template_img_padding'], (tl, tt, tr, tb))
+        exemplar_img, scale_z, s_z, w_x, h_x = self.get_exemplar_image(   template_img,
+                                                                self.ret['template_target_xywh'],
+                                                                config.template_img_size,
+                                                                config.context, img_mean )
 
-        dl = np.clip(cx + left - detection_square_size//2, 0, new_w - detection_square_size)
-        dt = np.clip(cy + top  - detection_square_size//2, 0, new_h - detection_square_size)
-        dr = np.clip(new_w - dl - detection_square_size, 0, new_w - detection_square_size)
-        db = np.clip(new_h - dt - detection_square_size, 0, new_h - detection_square_size )
-        self.ret['detection_cropped']= ImageOps.crop(self.ret['new_detection_img_padding'], (dl, dt, dr, db))
+        size_x = config.template_img_size
+        x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
+        x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
+        frame = cv2.rectangle(template_img, (x1,y1), (x2,y2), (0, 255, 0), 1)
+        cv2.imwrite('exemplar_img1.png',frame)
+        #cv2.waitKey(0)
 
-        self.ret['detection_tlcords_of_original_image'] = (cx - detection_square_size//2 , cy - detection_square_size//2)
-        self.ret['detection_tlcords_of_padding_image']  = (cx - detection_square_size//2 + left, cy - detection_square_size//2 + top)
-        self.ret['detection_rbcords_of_padding_image']  = (cx + detection_square_size//2 + left, cy + detection_square_size//2 + top)
-
-        # resize
-        self.ret['template_cropped_resized'] = self.ret['template_cropped'].copy().resize((config.template_img_size, config.template_img_size))   #(127, 127)
-        #self.ret['template_cropped_resized'].show()
-        self.ret['detection_cropped_resized']= self.ret['detection_cropped'].copy().resize((config.detection_img_size, config.detection_img_size))#(271, 271)
-        self.ret['template_cropprd_resized_ratio'] = round(config.template_img_size/template_square_size, 2)
-        self.ret['detection_cropped_resized_ratio'] = round(config.detection_img_size/detection_square_size, 2)
-
-        # compute target in detection, and then we will compute IOU
-        # whether target in detection part
-        x, y, w, h = self.ret['detection_target_xywh']
-        self.ret['target_tlcords_of_padding_image'] = np.array([int(x+left-w//2), int(y+top-h//2)], dtype = np.float32)
-        self.ret['target_rbcords_of_padding_image'] = np.array([int(x+left+w//2), int(y+top+h//2)], dtype = np.float32)
+        self.ret['exemplar_img'] = exemplar_img
 
 
-        ### use cords of padding to compute cords about detection
-        ### modify cords because not all the object in the detection
-        x11, y11 = self.ret['detection_tlcords_of_padding_image']
-        x12, y12 = self.ret['detection_rbcords_of_padding_image']
 
-        x21, y21 = self.ret['target_tlcords_of_padding_image']
-        x22, y22 = self.ret['target_rbcords_of_padding_image']
-        x1_of_d, y1_of_d, x3_of_d, y3_of_d = int(x21-x11), int(y21-y11), int(x22-x11), int(y22-y11)
-        #print('x21-x11', x21-x11)
-        #print('x21,x11', x21,x11)
+        '''detection'''
 
-        #print('x22-x11', x22-x11)
-
-        x1 = np.clip(x1_of_d, 0, x12-x11).astype(np.float32)
-        y1 = np.clip(y1_of_d, 0, y12-y11).astype(np.float32)
-
-        x2 = np.clip(x3_of_d, 0, x12-x11).astype(np.float32)
-        y2 = np.clip(y3_of_d, 0, y12-y11).astype(np.float32)
-        #print('x2,x1', x2,x1)
-
-        self.ret['target_in_detection_x1y1x2y2']=np.array([x1, y1, x2, y2], dtype = np.float32)
+        detection_img = cv2.imread(self.ret['detection_img_path'])
+        '''if np.random.rand(1) < config.gray_ratio:
+            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_RGB2GRAY)
+            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_GRAY2RGB)'''
+        d = self.ret['detection_target_xywh']
 
 
-        cords_in_cropped_detection = np.array((x1, y1, x2, y2), dtype = np.float32)
-        cords_in_cropped_resized_detection = (cords_in_cropped_detection * self.ret['detection_cropped_resized_ratio']).astype(np.int32)
-        x1, y1, x2, y2 = cords_in_cropped_resized_detection
-        cx, cy, w, h = (x1+x2)//2, (y1+y2)//2, x2-x1, y2-y1
-        #print('x2,x1', x2,x1)
-        #print('x2-x1', x2-x1)
+        #detection_img, gt_w, gt_h = self.RandomStretch(detection_img, d[2], d[3])
 
 
-        self.ret['target_in_resized_detection_x1y1x2y2'] = np.array((x1, y1, x2, y2), dtype = np.int32)
-        self.ret['target_in_resized_detection_xywh']     = np.array((cx, cy, w,  h) , dtype = np.int32)
-        self.ret['area_target_in_resized_detection']     = w * h
+        img_mean_d = tuple(map(int, detection_img.mean(axis=(0, 1))))
 
+        instance_img, w_x, h_x, scale_x = self.get_instance_image(  detection_img, d,
+                                                                    config.template_img_size,
+                                                                    config.detection_img_size,
+                                                                    config.context, img_mean_d )
+
+        size_x = config.detection_img_size
+
+        x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
+        x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
+        frame_d = cv2.rectangle(instance_img, (x1,y1), (x2,y2), (0, 255, 0), 2)
+        cv2.imwrite('detection_img.png',frame_d)
+
+        w  = x2 - x1
+        h  = y2 - y1
+        cx = x1 + w/2
+        cy = y1 + h/2
+
+        im_h, im_w, _ = instance_img.shape
+        cy_o = (im_h - 1) / 2
+        cx_o = (im_w - 1) / 2
+        cy = cy_o + np.random.randint(- config.max_translate, config.max_translate + 1)
+        cx = cx_o + np.random.randint(- config.max_translate, config.max_translate + 1)
+        gt_cx = cx_o - cx
+        gt_cy = cy_o - cy
+
+        self.ret['instance_img'] = instance_img
+        self.ret['cx, cy, w, h'] = [gt_cx, gt_cy, w, h]
+
+
+
+    def RandomStretch(self, sample, gt_w, gt_h):
+        scale_h = 1.0 + np.random.uniform(-config.scale_resize, config.scale_resize)
+        scale_w = 1.0 + np.random.uniform(-config.scale_resize, config.scale_resize)
+        h, w = sample.shape[:2]
+        shape = int(w * scale_w), int(h * scale_h)
+        scale_w = int(w * scale_w) / w
+        scale_h = int(h * scale_h) / h
+        gt_w = gt_w * scale_w
+        gt_h = gt_h * scale_h
+        return cv2.resize(sample, shape, cv2.INTER_LINEAR), gt_w, gt_h
+
+
+    def get_exemplar_image(self, img, bbox, size_z, context_amount, img_mean=None):
+        cx, cy, w, h = bbox
+
+        wc_z = w + context_amount * (w + h)
+        hc_z = h + context_amount * (w + h)
+        s_z = np.sqrt(wc_z * hc_z)
+        scale_z = size_z / s_z
+
+        exemplar_img, scale_x = self.crop_and_pad(img, cx, cy, size_z, s_z, img_mean)
+
+        w_x = w * scale_x
+        h_x = h * scale_x
+
+        return exemplar_img, scale_z, s_z, w_x, h_x
+
+    def get_instance_image(self, img, bbox, size_z, size_x, context_amount, img_mean=None):
+        cx, cy, w, h = bbox  # float type
+
+        wc_z = w + context_amount * (w + h)
+        hc_z = h + context_amount * (w + h)
+        s_z = np.sqrt(wc_z * hc_z) # the width of the crop box
+        scale_z = size_z / s_z
+
+        s_x = s_z * size_x / size_z
+        instance_img, scale_x = self.crop_and_pad(img, cx, cy, size_x, s_x, img_mean)
+        w_x = w * scale_x
+        h_x = h * scale_x
+        # point_1 = (size_x + 1) / 2 - w_x / 2, (size_x + 1) / 2 - h_x / 2
+        # point_2 = (size_x + 1) / 2 + w_x / 2, (size_x + 1) / 2 + h_x / 2
+        # frame = cv2.rectangle(instance_img, (int(point_1[0]),int(point_1[1])), (int(point_2[0]),int(point_2[1])), (0, 255, 0), 2)
+        # cv2.imwrite('1.jpg', frame)
+        return instance_img, w_x, h_x, scale_x
+
+    def crop_and_pad(self, img, cx, cy, model_sz, original_sz, img_mean=None):
+        im_h, im_w, _ = img.shape
+
+        xmin = cx - (original_sz - 1) / 2
+        xmax = xmin + original_sz - 1
+        ymin = cy - (original_sz - 1) / 2
+        ymax = ymin + original_sz - 1
+
+        left = int(self.round_up(max(0., -xmin)))
+        top = int(self.round_up(max(0., -ymin)))
+        right = int(self.round_up(max(0., xmax - im_w + 1)))
+        bottom = int(self.round_up(max(0., ymax - im_h + 1)))
+
+        xmin = int(self.round_up(xmin + left))
+        xmax = int(self.round_up(xmax + left))
+        ymin = int(self.round_up(ymin + top))
+        ymax = int(self.round_up(ymax + top))
+        r, c, k = img.shape
+        if any([top, bottom, left, right]):
+            te_im = np.zeros((r + top + bottom, c + left + right, k), np.uint8)  # 0 is better than 1 initialization
+            te_im[top:top + r, left:left + c, :] = img
+            if top:
+                te_im[0:top, left:left + c, :] = img_mean
+            if bottom:
+                te_im[r + top:, left:left + c, :] = img_mean
+            if left:
+                te_im[:, 0:left, :] = img_mean
+            if right:
+                te_im[:, c + left:, :] = img_mean
+            im_patch_original = te_im[int(ymin):int(ymax + 1), int(xmin):int(xmax + 1), :]
+        else:
+            im_patch_original = img[int(ymin):int(ymax + 1), int(xmin):int(xmax + 1), :]
+        if not np.array_equal(model_sz, original_sz):
+            im_patch = cv2.resize(im_patch_original, (model_sz, model_sz))  # zzp: use cv to get a better speed
+        else:
+            im_patch = im_patch_original
+        scale = model_sz / im_patch_original.shape[0]
+        return im_patch, scale
+
+    def round_up(self, value):
+        return round(value + 1e-6 + 1000) - 1000
 
     def _target(self):
+
         regression_target, conf_target = self.compute_target(self.anchors,
                                                              np.array(list(map(round,
-                                                             self.ret['target_in_resized_detection_xywh']))))
+                                                             self.ret['cx, cy, w, h']))))
 
-        #print(self.ret['target_in_resized_detection_xywh'])
 
         return regression_target, conf_target
 
@@ -201,12 +251,15 @@ class TrainDataLoader(Dataset):
         regression_target = self.box_transform(anchors, box)
 
         iou = self.compute_iou(anchors, box).flatten()
-        # print(np.max(iou))
+        #print(np.max(iou))
         pos_index = np.where(iou > config.pos_threshold)[0]
         neg_index = np.where(iou < config.neg_threshold)[0]
         label = np.ones_like(iou) * -1
         label[pos_index] = 1
+        #print('label[pos_index]', len(label[pos_index]))
         label[neg_index] = 0
+        #print('label[neg_index]', len(label[neg_index]))
+
         return regression_target, label
 
     def box_transform(self, anchors, gt_box):
@@ -223,7 +276,7 @@ class TrainDataLoader(Dataset):
         regression_target = np.hstack((target_x, target_y, target_w, target_h))
         return regression_target
 
-    def compute_iou(self, anchors, box):
+    def compute_iou_old(self, anchors, box):
         if np.array(anchors).ndim == 1:
             anchors = np.array(anchors)[None, :]
         else:
@@ -256,45 +309,71 @@ class TrainDataLoader(Dataset):
         iou = inter_area / (area_anchor + area_gt - inter_area + 1e-6)
         return iou
 
+    def compute_iou(self, anchors, box):
+        #print('anchors, box', anchors, box)
+        gt_box = np.tile(box.reshape(1, -1), (anchors.shape[0], 1))
+
+        anchor_x1 = anchors[:, :1] - anchors[:, 2:3] / 2 + 0.5
+        anchor_x2 = anchors[:, :1] + anchors[:, 2:3] / 2 - 0.5
+        anchor_y1 = anchors[:, 1:2] - anchors[:, 3:] / 2 + 0.5
+        anchor_y2 = anchors[:, 1:2] + anchors[:, 3:] / 2 - 0.5
+
+        gt_x1 = gt_box[:, :1] - gt_box[:, 2:3] / 2 + 0.5
+        gt_x2 = gt_box[:, :1] + gt_box[:, 2:3] / 2 - 0.5
+        gt_y1 = gt_box[:, 1:2] - gt_box[:, 3:] / 2 + 0.5
+        gt_y2 = gt_box[:, 1:2] + gt_box[:, 3:] / 2 - 0.5
+
+        xx1 = np.max([anchor_x1, gt_x1], axis=0)
+        xx2 = np.min([anchor_x2, gt_x2], axis=0)
+        yy1 = np.max([anchor_y1, gt_y1], axis=0)
+        yy2 = np.min([anchor_y2, gt_y2], axis=0)
+
+        inter_area = np.max([xx2 - xx1, np.zeros(xx1.shape)], axis=0) * np.max([yy2 - yy1, np.zeros(xx1.shape)],
+                                                                               axis=0)
+        area_anchor = (anchor_x2 - anchor_x1) * (anchor_y2 - anchor_y1)
+        area_gt = (gt_x2 - gt_x1) * (gt_y2 - gt_y1)
+        iou = inter_area / (area_anchor + area_gt - inter_area + 1e-6)
+        return iou
+
     def _tranform(self):
-        """PIL to Tensor"""
-        template_pil = self.ret['template_cropped_resized'].copy()
-        detection_pil= self.ret['detection_cropped_resized'].copy()
-        #pos_neg_diff = self.ret['pos_neg_diff'].copy()
 
-        transform       = self.get_transform_for_train()
-        template_tensor = transform(template_pil)
-        detection_tensor= transform(detection_pil)
+        train_z_transforms = transforms.Compose([
+            ToTensor()
+        ])
+        train_x_transforms = transforms.Compose([
+            ToTensor()
+        ])
 
-        self.ret['template_tensor']     = template_tensor#.unsqueeze(0)
+        self.ret['train_x_transforms'] = train_x_transforms(self.ret['instance_img'])
 
-        self.ret['detection_tensor']    = detection_tensor#.unsqueeze(0)
+        self.ret['train_z_transforms'] = train_z_transforms(self.ret['exemplar_img'])
 
-        #self.ret['pos_neg_diff_tensor'] = torch.Tensor(pos_neg_diff)
+
 
     def __getitem__(self, index):
-
-        index = random.choice(range(len(self.sub_class_dir)))
+        if index >= len(self.sub_class_dir):
+            index = random.choice(range(len(self.sub_class_dir)))
         if self.name == 'GOT-10k':
             if index == 8627 or index == 8629 or index == 9057 or index == 9058:
                 index += 1
 
         self._pick_img_pairs(index)
-        self._pad_crop_resize()
+        self.open()
+        #self._pad_crop_resize()
         #self._generate_pos_neg_diff()
         self._tranform()
         regression_target, conf_target = self._target()
         self.count += 1
-        '''detection = self.ret['detection_cropped_resized']
 
-        draw = ImageDraw.Draw(detection)
+        return self.ret['train_z_transforms'], self.ret['train_x_transforms'], regression_target, conf_target.astype(np.int64)
 
-        x, y, w, h = self.ret['target_in_resized_detection_xywh']
-        x1, y1, x2, y2 = x-w//2, y-h//2, x+w//2, y+h//2
-        draw.line([(x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)], width=1, fill='red')
 
-        detection.show()
-        '''
-        return self.ret['template_tensor'], self.ret['detection_tensor'], regression_target, conf_target.astype(np.int64)
     def __len__(self):
         return config.train_epoch_size
+
+if __name__ == "__main__":
+
+    root_dir = '/Users/arbi/Desktop'
+    seq_dataset = GOT10k(root_dir, subset='val')
+    train_data  = TrainDataLoader(seq_dataset)
+    train_data.__getitem__(180)
