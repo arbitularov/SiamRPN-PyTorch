@@ -11,7 +11,7 @@ from config import config
 from torch.autograd import Variable
 from got10k.trackers import Tracker
 from network import SiameseAlexNet
-from data_loader import TrainDataLoader
+from data_loader import TrackerDataLoader
 from PIL import Image, ImageOps, ImageStat, ImageDraw
 
 class SiamRPN(nn.Module):
@@ -83,7 +83,7 @@ class TrackerSiamRPNBIG(Tracker):
         self.device = torch.device('cuda:0' if self.cuda else 'cpu')
 
         checkpoint = torch.load(model_path, map_location = self.device)
-        print("1")
+        #print("1")
         if 'model' in checkpoint.keys():
             self.model.load_state_dict(torch.load(model_path, map_location = self.device)['model'])
         else:
@@ -106,6 +106,8 @@ class TrackerSiamRPNBIG(Tracker):
         self.window = np.tile(np.outer(np.hanning(config.score_size), np.hanning(config.score_size))[None, :],
                               [config.anchor_num, 1, 1]).flatten()
 
+        self.data_loader = TrackerDataLoader()
+
     def _cosine_window(self, size):
         """
             get the cosine window
@@ -125,10 +127,9 @@ class TrackerSiamRPNBIG(Tracker):
         frame = np.asarray(frame)
         bbox[0] = bbox[0] + bbox[2]/2
         bbox[1] = bbox[1] + bbox[3]/2
-        print('bbox', bbox)
-        #self.pos = np.array([bbox[0] + bbox[2] / 2 - 1 / 2, bbox[1] + bbox[3] / 2 - 1 / 2])  # center x, center y, zero based
-        self.pos = np.array([bbox[0], bbox[1]])  # center x, center y, zero based
-        print('self.pos', self.pos)
+
+        self.pos = np.array([bbox[0] + bbox[2] / 2 - 1 / 2, bbox[1] + bbox[3] / 2 - 1 / 2])  # center x, center y, zero based
+
         self.target_sz = np.array([bbox[2], bbox[3]])  # width, height
         self.bbox = np.array([bbox[0] + bbox[2] / 2 - 1 / 2, bbox[1] + bbox[3] / 2 - 1 / 2, bbox[2], bbox[3]])
 
@@ -136,13 +137,13 @@ class TrackerSiamRPNBIG(Tracker):
         # get exemplar img
         self.img_mean = np.mean(frame, axis=(0, 1))
 
-        exemplar_img, _, _ = util.get_exemplar_image(   frame,
-                                                        bbox,
-                                                        config.template_img_size,
-                                                        config.context_amount,
-                                                        self.img_mean)
+        exemplar_img, _, _ = self.data_loader.get_exemplar_image(   frame,
+                                                                    bbox,
+                                                                    config.template_img_size,
+                                                                    config.context_amount,
+                                                                    self.img_mean)
 
-        cv2.imshow('exemplar_img', exemplar_img)
+        #cv2.imshow('exemplar_img', exemplar_img)
         # get exemplar feature
         exemplar_img = self.transforms(exemplar_img)[None, :, :, :]
         if self.cuda:
@@ -159,14 +160,14 @@ class TrackerSiamRPNBIG(Tracker):
             bbox: tuple of 1-based bounding box(xmin, ymin, xmax, ymax)
         """
         frame = np.asarray(frame)
-        instance_img, _, _, scale_x = util.get_instance_image(  frame,
-                                                                self.bbox,
-                                                                config.template_img_size,
-                                                                config.detection_img_size,
-                                                                config.context_amount,
-                                                                self.img_mean)
-        cv2.imshow('instance_img', instance_img)
 
+        instance_img, _, _, scale_x = self.data_loader.get_instance_image(  frame,
+                                                                            self.bbox,
+                                                                            config.template_img_size,
+                                                                            config.detection_img_size,
+                                                                            config.context_amount,
+                                                                            self.img_mean)
+        #cv2.imshow('instance_img', instance_img)
 
         instance_img = self.transforms(instance_img)[None, :, :, :]
         if self.cuda:
@@ -174,32 +175,15 @@ class TrackerSiamRPNBIG(Tracker):
         else:
             pred_score, pred_regression = self.model.track(instance_img)
 
-        pred_conf = pred_score.reshape(-1, 2, config.anchor_num * config.score_size * config.score_size).permute(0,
-                                                                                                                 2,
-                                                                                                                 1)
-        pred_offset = pred_regression.reshape(-1, 4,
-                                              config.anchor_num * config.score_size * config.score_size).permute(0,
-                                                                                                                 2,
-                                                                                                                 1)
+        pred_conf   = pred_score.reshape(-1, 2, config.size ).permute(0, 2, 1)
+        pred_offset = pred_regression.reshape(-1, 4, config.size ).permute(0, 2, 1)
+
         delta = pred_offset[0].cpu().detach().numpy()
         box_pred = util.box_transform_inv(self.anchors, delta)
         score_pred = F.softmax(pred_conf, dim=2)[0, :, 1].cpu().detach().numpy()
 
-        def change(r):
-            return np.maximum(r, 1. / r)
-
-        def sz(w, h):
-            pad = (w + h) * 0.5
-            sz2 = (w + pad) * (h + pad)
-            return np.sqrt(sz2)
-
-        def sz_wh(wh):
-            pad = (wh[0] + wh[1]) * 0.5
-            sz2 = (wh[0] + pad) * (wh[1] + pad)
-            return np.sqrt(sz2)
-
-        s_c = change(sz(box_pred[:, 2], box_pred[:, 3]) / (sz_wh(self.target_sz * scale_x)))  # scale penalty
-        r_c = change((self.target_sz[0] / self.target_sz[1]) / (box_pred[:, 2] / box_pred[:, 3]))  # ratio penalty
+        s_c = util.change(util.sz(box_pred[:, 2], box_pred[:, 3]) / (util.sz_wh(self.target_sz * scale_x)))  # scale penalty
+        r_c = util.change((self.target_sz[0] / self.target_sz[1]) / (box_pred[:, 2] / box_pred[:, 3]))  # ratio penalty
         penalty = np.exp(-(r_c * s_c - 1.) * config.penalty_k)
         pscore = penalty * score_pred
         pscore = pscore * (1 - config.window_influence) + self.window * config.window_influence
@@ -218,17 +202,16 @@ class TrackerSiamRPNBIG(Tracker):
 
         self.pos = np.array([res_x, res_y])
         self.target_sz = np.array([res_w, res_h])
-        '''res_x = res_x - res_w/2
-        res_y = res_y - res_h/2'''
+
         bbox = np.array([res_x, res_y, res_w, res_h])
-        print('bbox', bbox)
+        #print('bbox', bbox)
         self.bbox = (
             np.clip(bbox[0], 0, frame.shape[1]).astype(np.float64),
             np.clip(bbox[1], 0, frame.shape[0]).astype(np.float64),
             np.clip(bbox[2], 10, frame.shape[1]).astype(np.float64),
             np.clip(bbox[3], 10, frame.shape[0]).astype(np.float64))
 
-        res_x = res_x - res_w/2
-        res_y = res_y - res_h/2
+        res_x = res_x - res_w/2 # x -> x1
+        res_y = res_y - res_h/2 # y -> y1
         bbox = np.array([res_x, res_y, res_w, res_h])
         return bbox

@@ -42,16 +42,23 @@ class Config(object):
 
     '''config for train_siamrpn.py'''
     epoches = 200
-    train_epoch_size = 1000
-    val_epoch_size = 1000
-    lr = 1e-6
+    train_epoch_size = 10
+    val_epoch_size = 10
 
-    weight_decay = 0.0005
+    start_lr = 3e-2
+    end_lr = 1e-5
+    epoch = 50
+    lr = np.logspace(np.log10(start_lr), np.log10(end_lr), num=epoch)[0]
     momentum = 0.9
+    weight_decay = 0.0005
+
+    clip = 10                              # grad clip
 
     anchor_scales = np.array([8, ])
     anchor_ratios = np.array([0.33, 0.5, 1, 2, 3])
     anchor_num    = len(anchor_scales) * len(anchor_ratios)
+
+    size = anchor_num * score_size * score_size
 
 
 config = Config()

@@ -25,5 +25,6 @@ class TrackerConfig(object):
     anchor_base_size = 8
     anchor_scales = np.array([8, ])
     anchor_ratios = np.array([0.33, 0.5, 1, 2, 3])
+    size = anchor_num * score_size * score_size
 
 config = TrackerConfig()

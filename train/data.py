@@ -100,7 +100,7 @@ class TrainDataLoader(Dataset):
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
         frame = cv2.rectangle(template_img, (x1,y1), (x2,y2), (0, 255, 0), 1)
-        cv2.imwrite('exemplar_img1.png',frame)
+        #cv2.imwrite('exemplar_img1.png',frame)
         #cv2.waitKey(0)
 
         self.ret['exemplar_img'] = exemplar_img
@@ -131,7 +131,7 @@ class TrainDataLoader(Dataset):
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
         frame_d = cv2.rectangle(instance_img, (x1,y1), (x2,y2), (0, 255, 0), 2)
-        cv2.imwrite('detection_img.png',frame_d)
+        #cv2.imwrite('detection_img.png',frame_d)
 
         w  = x2 - x1
         h  = y2 - y1

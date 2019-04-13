@@ -9,6 +9,8 @@ model_e3.pth
 model_e4.pth
 weights-000.pth.tar
 test
+OTBreports
+OTBresults
 results
 siamrpn_7.pth
 siamrpn_25.pth

@@ -9,8 +9,7 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from torch.nn import init
-from util import Util as util
-from util import AverageMeter
+from util import util, AverageMeter, SavePlot
 from net import TrackerSiamRPN
 from data import TrainDataLoader
 from config import config
@@ -21,14 +20,14 @@ parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
 parser.add_argument('--train_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--checkpoint_path', default='../siamrpn_7.pth', help='resume')
+parser.add_argument('--checkpoint_path', default='../siamrpn_25.pth', help='resume')
 # /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop
-# 'experiments/default/model/model_e74.pth'
+# 'experiments/default/model/model_e1.pth'
 def main():
 
     '''parameter initialization'''
     args = parser.parse_args()
-    exp_name_dir = AverageMeter.experiment_name_dir(args.experiment_name)
+    exp_name_dir = util.experiment_name_dir(args.experiment_name)
 
     '''model on gpu'''
     model = TrackerSiamRPN()
@@ -54,7 +53,7 @@ def main():
     train_loader = DataLoader(  dataset    = train_data,
                                 batch_size = 1,
                                 shuffle    = True,
-                                num_workers= 1,
+                                num_workers= 16,
                                 pin_memory = True)
 
     '''setup val data loader'''
@@ -77,7 +76,7 @@ def main():
     val_data  = TrainDataLoader(seq_dataset_val, name)
     val_loader = DataLoader(  dataset    = val_data,
                                 batch_size = 1,
-                                shuffle    = True,
+                                shuffle    = False,
                                 num_workers= 16,
                                 pin_memory = True)
 
@@ -94,8 +93,8 @@ def main():
         print('You are loading the model.load_state_dict')
 
     elif config.pretrained_model:
-        print("init with pretrained checkpoint %s" % config.pretrained_model + '\n')
-        print('------------------------------------------------------------------------------------------------ \n')
+        #print("init with pretrained checkpoint %s" % config.pretrained_model + '\n')
+        #print('------------------------------------------------------------------------------------------------ \n')
         checkpoint = torch.load(config.pretrained_model)
         # change name and load parameters
         checkpoint = {k.replace('features.features', 'featureExtract'): v for k, v in checkpoint.items()}
@@ -104,7 +103,10 @@ def main():
         model.net.load_state_dict(model_dict)
 
     '''train phase'''
-    closses, rlosses, tlosses, steps = AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()
+    train_closses, train_rlosses, train_tlosses = AverageMeter(), AverageMeter(), AverageMeter()
+    val_closses, val_rlosses, val_tlosses = AverageMeter(), AverageMeter(), AverageMeter()
+
+    train_val_plot = SavePlot(exp_name_dir, 'train_val_plot')
 
     for epoch in range(config.epoches):
         model.net.train()
@@ -114,66 +116,71 @@ def main():
             else:
                 util.freeze_layers(model.net)
         print('Train epoch {}/{}'.format(epoch+1, config.epoches))
+        train_loss = []
         with tqdm(total=config.train_epoch_size) as progbar:
             for i, dataset in enumerate(train_loader):
 
-                closs, rloss, loss, cur_lr = model.step(epoch, dataset, backward=True)
+                closs, rloss, loss = model.step(epoch, dataset, train=True)
 
                 closs_ = closs.cpu().item()
 
                 if np.isnan(closs_):
                    sys.exit(0)
 
-                closses.update(closs.cpu().item())
-                rlosses.update(rloss.cpu().item())
-                tlosses.update(loss.cpu().item())
+                train_closses.update(closs.cpu().item())
+                train_rlosses.update(rloss.cpu().item())
+                train_tlosses.update(loss.cpu().item())
 
-                progbar.set_postfix(closs='{:05.3f}'.format(closses.avg), rloss='{:05.5f}'.format(rlosses.avg), tloss='{:05.3f}'.format(tlosses.avg))
+                progbar.set_postfix(closs='{:05.3f}'.format(train_closses.avg),
+                                    rloss='{:05.3f}'.format(train_rlosses.avg),
+                                    tloss='{:05.3f}'.format(train_tlosses.avg))
 
                 progbar.update()
+                train_loss.append(train_tlosses.avg)
 
                 if i >= config.train_epoch_size - 1:
                     '''save plot'''
-                    closses.closs_array.append(closses.avg)
-                    rlosses.rloss_array.append(rlosses.avg)
-                    tlosses.loss_array.append(tlosses.avg)
+                    #train_val_plot.update(train_tlosses.avg, train_label = 'total loss')
 
                     '''save model'''
                     model.save(model, exp_name_dir, epoch)
 
                     break
 
+        train_loss = np.mean(train_loss)
+
         '''val phase'''
+        val_loss = []
         with tqdm(total=config.val_epoch_size) as progbar:
             print('Val epoch {}/{}'.format(epoch+1, config.epoches))
             for i, dataset in enumerate(val_loader):
 
-                closs, rloss, loss, cur_lr = model.step(epoch, dataset, backward=False)
+                val_closs, val_rloss, val_tloss = model.step(epoch, dataset, train=False)
 
-                closs_ = closs.cpu().item()
+                closs_ = val_closs.cpu().item()
 
                 if np.isnan(closs_):
-                   sys.exit(0)
+                    sys.exit(0)
 
-                closses.update(closs.cpu().item())
-                rlosses.update(rloss.cpu().item())
-                tlosses.update(loss.cpu().item())
+                val_closses.update(val_closs.cpu().item())
+                val_rlosses.update(val_rloss.cpu().item())
+                val_tlosses.update(val_tloss.cpu().item())
 
-                progbar.set_postfix(closs='{:05.3f}'.format(closses.avg), rloss='{:05.3f}'.format(rlosses.avg), tloss='{:05.3f}'.format(tlosses.avg))
+                progbar.set_postfix(closs='{:05.3f}'.format(val_closses.avg),
+                                    rloss='{:05.3f}'.format(val_rlosses.avg),
+                                    tloss='{:05.3f}'.format(val_tlosses.avg))
 
                 progbar.update()
 
-                if i >= config.train_epoch_size - 1:
-                    '''save plot'''
-                    closses.closs_array_val.append(closses.avg)
-                    rlosses.rloss_array_val.append(rlosses.avg)
-                    tlosses.loss_array_val.append(tlosses.avg)
-                    steps.update(steps.count)
-                    steps.steps_array.append(steps.count)
+                val_loss.append(val_tlosses.avg)
 
-                    steps.plot(exp_name_dir)
+                if i >= config.val_epoch_size - 1:
 
                     break
+
+        val_loss = np.mean(val_loss)
+        train_val_plot.update(train_loss, val_loss)
+        print ('Train loss: {}, val loss: {}'.format(train_loss, val_loss))
 
 if __name__ == '__main__':
     main()

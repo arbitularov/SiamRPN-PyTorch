@@ -4,7 +4,7 @@ import torch.nn as nn
 
 class Util(object):
 
-    def data_split(seq_datasetVID, seq_datasetGOT):
+    def data_split(self, seq_datasetVID, seq_datasetGOT):
         seq_dataset = []
         for i in seq_datasetVID:
             seq_dataset.append(i)
@@ -48,8 +48,8 @@ class Util(object):
         return anchor
 
     # freeze layers
-    def freeze_layers(model):
-        print('------------------------------------------------------------------------------------------------')
+    def freeze_layers(self, model):
+        #print('------------------------------------------------------------------------------------------------')
         for layer in model.featureExtract[:10]:
             if isinstance(layer, nn.BatchNorm2d):
                 layer.eval()
@@ -64,8 +64,16 @@ class Util(object):
                 continue
             else:
                 raise KeyError('error in fixing former 3 layers')
-        print("fixed layers:")
-        print(model.featureExtract[:10])
+        #print("fixed layers:")
+        #print(model.featureExtract[:10])
+
+    def experiment_name_dir(self, experiment_name):
+        experiment_name_dir = 'experiments/{}'.format(experiment_name)
+        if experiment_name == 'default':
+            print('You are using "default" experiment, my advice to you is: Copy "default" change folder name and change settings in file "parameters.json"')
+        else:
+            print('You are using "{}" experiment'.format(experiment_name))
+        return experiment_name_dir
 
 util = Util()
 
@@ -73,16 +81,6 @@ class AverageMeter(object):
     '''Computes and stores the average and current value'''
     def __init__(self):
         self.reset()
-        self.plot_c = 0
-
-    steps_array = []
-    loss_array  = []
-    closs_array = []
-    rloss_array = []
-
-    loss_array_val  = []
-    closs_array_val = []
-    rloss_array_val = []
 
     def reset(self):
         self.val = 0
@@ -96,45 +94,80 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-    '''setup plot'''
+class SavePlot(object):
+    def __init__(self,  exp_name_dir,
+                        name = 'plot',
+                        title  = 'Siamese RPN',
+                        ylabel = 'loss',
+                        xlabel = 'epoch',
+                        show   = False):
+
+        self.step = 0
+        self.exp_name_dir = exp_name_dir
+        self.steps_array  = []
+        self.train_array  = []
+        self.val_array    = []
+        self.name   = name
+        self.title  = title
+        self.ylabel = ylabel
+        self.xlabel = xlabel
+        self.show   = show
+
+        self.plot(  self.exp_name_dir,
+                    self.steps_array,
+                    self.train_array,
+                    self.val_array,
+                    self.name,
+                    self.title,
+                    self.ylabel,
+                    self.xlabel,
+                    self.show)
+
+        self.plt.legend()
+
+    def update(self, train,
+                     val,
+                     train_label = 'train loss',
+                     val_label   = 'val loss',
+                     count_step=1):
+
+        self.step += count_step
+        self.steps_array.append(self.step)
+        self.train_array.append(train)
+        self.val_array.append(val)
+
+        self.plot(exp_name_dir = self.exp_name_dir,
+                        step   = self.steps_array,
+                        train  = self.train_array,
+                        val    = self.val_array,
+                        name   = self.name,
+                        title  = self.title,
+                        ylabel = self.ylabel,
+                        xlabel = self.xlabel,
+                        show   = self.show,
+                        train_label = train_label,
+                        val_label = val_label)
+
     def plot(self,  exp_name_dir,
-                    step   = steps_array,
-                    train_loss   = loss_array,
-                    train_closs  = closs_array,
-                    train_rloss  = rloss_array,
+                    step,
+                    train,
+                    val,
+                    name,
+                    title,
+                    ylabel,
+                    xlabel,
+                    show,
+                    train_label = 'train loss',
+                    val_label   = 'val loss'):
+        self.plt  = plt
+        self.plt.plot(step, train, 'r', label = train_label, color = 'red')
+        self.plt.plot(step, val, 'r', label = val_label, color='black')
 
-                    val_loss   = loss_array_val,
-                    val_closs  = closs_array_val,
-                    val_rloss  = rloss_array_val,
-
-                    title  = "Siamese RPN",
-                    ylabel = 'error',
-                    xlabel = 'epoch',
-                    show   = False):
-        plt.plot(step, train_loss, 'r', label='train loss', color='blue')
-        plt.plot(step, train_closs, 'r', label='train closs', color='red')
-        plt.plot(step, train_rloss, 'r', label='train rloss', color='black')
-
-        plt.plot(step, val_loss, 'k--', label='val loss', color='blue')
-        plt.plot(step, val_closs, 'k--', label='val closs', color='red')
-        plt.plot(step, val_rloss, 'k--', label='val rloss', color='black')
-
-        plt.title(title)
-        plt.ylabel(ylabel)
-        plt.xlabel(xlabel)
-        if self.plot_c == 0:
-            plt.legend()
-            self.plot_c +=1
+        self.plt.title(title)
+        self.plt.ylabel(ylabel)
+        self.plt.xlabel(xlabel)
 
         '''save plot'''
-        plt.savefig("{}/test.png".format(exp_name_dir))
+        self.plt.savefig("{}/{}.png".format(exp_name_dir, name))
         if show:
-            plt.show()
-
-    def experiment_name_dir(experiment_name):
-        experiment_name_dir = 'experiments/{}'.format(experiment_name)
-        if experiment_name == 'default':
-            print('You are using "default" experiment, my advice to you is: Copy "default" change folder name and change settings in file "parameters.json"')
-        else:
-            print('You are using "{}" experiment'.format(experiment_name))
-        return experiment_name_dir
+            self.plt.show()

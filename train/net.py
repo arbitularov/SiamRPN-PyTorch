@@ -15,7 +15,97 @@ from got10k.trackers import Tracker
 from network import SiameseAlexNet
 from loss import rpn_smoothL1, rpn_cross_entropy_balance
 
-class SiamRPN(nn.Module):
+class TrackerSiamRPN(Tracker):
+
+    def __init__(self, net_path=None, **kargs):
+        super(TrackerSiamRPN, self).__init__(
+            name='SiamRPN', is_deterministic=True)
+
+        '''setup GPU device if available'''
+        self.cuda   = torch.cuda.is_available()
+        self.device = torch.device('cuda:0' if self.cuda else 'cpu')
+
+        '''setup model'''
+        self.net = SiameseAlexNet()
+
+        if net_path is not None:
+            self.net.load_state_dict(torch.load(
+                net_path, map_location = lambda storage, loc: storage ))
+        if self.cuda:
+            self.net = self.net.to(self.device)
+
+        '''setup optimizer'''
+        self.criterion   = MultiBoxLoss()
+
+        self.optimizer   = torch.optim.SGD(
+            self.net.parameters(),
+            lr           = config.lr,
+            momentum     = config.momentum,
+            weight_decay = config.weight_decay)
+
+        self.anchors     = util.generate_anchors(   config.total_stride,
+                                                    config.anchor_base_size,
+                                                    config.anchor_scales,
+                                                    config.anchor_ratios,
+                                                    config.anchor_valid_scope)
+
+    def step(self, epoch, dataset, train=True):
+
+        if train:
+            self.net.train()
+        else:
+            self.net.eval()
+
+        template, detection, regression_target, conf_target = dataset
+        if self.cuda:
+            template, detection = template.cuda(), detection.cuda()
+
+        pred_score, pred_regression = self.net(template, detection)
+
+        pred_conf   = pred_score.reshape(-1, 2, config.size).permute(0, 2, 1)
+
+        pred_offset = pred_regression.reshape(-1, 4, config.size).permute(0, 2, 1)
+
+        cls_loss = rpn_cross_entropy_balance(   pred_conf,
+                                                conf_target,
+                                                config.num_pos,
+                                                config.num_neg,
+                                                self.anchors,
+                                                ohem_pos=config.ohem_pos,
+                                                ohem_neg=config.ohem_neg)
+
+        reg_loss = rpn_smoothL1(pred_offset,
+                                regression_target,
+                                conf_target,
+                                config.num_pos,
+                                ohem=config.ohem_reg)
+
+        loss = cls_loss + config.lamb * reg_loss
+
+        if train:
+            self.optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.net.parameters(), config.clip)
+            self.optimizer.step()
+
+        return cls_loss, reg_loss, loss
+
+    '''save model'''
+    def save(self,model, exp_name_dir, epoch):
+        model_save_dir_pth = '{}/model'.format(exp_name_dir)
+        if not os.path.exists(model_save_dir_pth):
+                os.makedirs(model_save_dir_pth)
+        net_path = os.path.join(model_save_dir_pth, 'model_e%d.pth' % (epoch + 1))
+        torch.save(model.net.state_dict(), net_path)
+
+'''def adjust_learning_rate(lr, optimizer, epoch, gamma=0.1):
+    """Sets the learning rate to the initial LR decayed 0.9 every 50 epochs"""
+    lr = lr * (0.9 ** (epoch // 1))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+    return lr
+'''
+'''class SiamRPN(nn.Module):
 
     def __init__(self, anchor_num = 5):
         super(SiamRPN, self).__init__()
@@ -72,94 +162,4 @@ class SiamRPN(nn.Module):
         out_reg = self.adjust_reg(F.conv2d(x_reg, kernel_reg))
         out_cls = F.conv2d(x_cls, kernel_cls)
 
-        return out_reg, out_cls
-
-class TrackerSiamRPN(Tracker):
-
-    def __init__(self, net_path=None, **kargs):
-        super(TrackerSiamRPN, self).__init__(
-            name='SiamRPN', is_deterministic=True)
-
-        '''setup GPU device if available'''
-        self.cuda   = torch.cuda.is_available()
-        self.device = torch.device('cuda:0' if self.cuda else 'cpu')
-
-        '''setup model'''
-        #self.net = SiamRPN()
-        self.net = SiameseAlexNet()
-        if self.cuda:
-            self.net = self.net.cuda()
-        
-        if net_path is not None:
-            self.net.load_state_dict(torch.load(
-                net_path, map_location = lambda storage, loc: storage ))
-        #self.net = self.net.to(self.device)
-
-        '''setup optimizer'''
-        self.criterion   = MultiBoxLoss()
-
-        self.optimizer   = torch.optim.SGD(
-            self.net.parameters(),
-            lr           = config.lr,
-            momentum     = config.momentum,
-            weight_decay = config.weight_decay)
-
-        self.anchors     = util.generate_anchors(   config.total_stride,
-                                                    config.anchor_base_size,
-                                                    config.anchor_scales,
-                                                    config.anchor_ratios,
-                                                    config.anchor_valid_scope)
-
-    def step(self, epoch, dataset, backward=True):
-
-        if backward:
-            self.net.train()
-        else:
-            self.net.eval()
-
-        cur_lr = adjust_learning_rate(config.lr, self.optimizer, epoch, gamma=0.1)
-
-        template, detection, regression_target, conf_target = dataset
-        if self.cuda:
-            template, detection = template.cuda(), detection.cuda()
-
-        pred_score, pred_regression = self.net(template, detection)
-
-        #pred_conf = cout.permute(0,2,3,1).reshape(1,-1, 2)
-
-        #pred_offset = rout.permute(0,2,3,1).reshape(1,-1, 4)
-
-        pred_conf = pred_score.reshape(-1, 2, config.anchor_num * config.score_size * config.score_size).permute(0,
-                                                                                                                 2,
-                                                                                                                 1)
-        pred_offset = pred_regression.reshape(-1, 4,
-                                                 config.anchor_num * config.score_size * config.score_size).permute(0,
-                                                                                                                    2,
-                                                                                                                    1)
-
-        cls_loss = rpn_cross_entropy_balance(pred_conf, conf_target, config.num_pos, config.num_neg, self.anchors,
-                                                 ohem_pos=config.ohem_pos, ohem_neg=config.ohem_neg)
-        reg_loss = rpn_smoothL1(pred_offset, regression_target, conf_target, config.num_pos, ohem=config.ohem_reg)
-        loss = cls_loss + config.lamb * reg_loss
-
-        if backward:
-            self.optimizer.zero_grad()
-            loss.backward(retain_graph=True)
-            self.optimizer.step()
-
-        return cls_loss, reg_loss, loss, cur_lr
-
-    '''save model'''
-    def save(self,model, exp_name_dir, epoch):
-        model_save_dir_pth = '{}/model'.format(exp_name_dir)
-        if not os.path.exists(model_save_dir_pth):
-                os.makedirs(model_save_dir_pth)
-        net_path = os.path.join(model_save_dir_pth, 'model_e%d.pth' % (epoch + 1))
-        torch.save(model.net.state_dict(), net_path)
-
-def adjust_learning_rate(lr, optimizer, epoch, gamma=0.1):
-    """Sets the learning rate to the initial LR decayed 0.9 every 50 epochs"""
-    lr = lr * (0.9 ** (epoch // 1))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return lr
+        return out_reg, out_cls'''
