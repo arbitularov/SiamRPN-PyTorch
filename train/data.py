@@ -8,6 +8,7 @@ import random
 import numpy as np
 import os.path as osp
 from util import util
+from PIL import Image
 from config import config
 from torch.utils.data import Dataset
 from got10k.datasets import ImageNetVID, GOT10k
@@ -42,6 +43,7 @@ class TrainDataLoader(Dataset):
         assert index_of_subclass < len(self.sub_class_dir), 'index_of_subclass should less than total classes'
 
         video_name = self.sub_class_dir[index_of_subclass][0]
+
         video_num  = len(video_name)
         video_gt = self.sub_class_dir[index_of_subclass][1]
         #print('video_num', video_num)
@@ -80,9 +82,13 @@ class TrainDataLoader(Dataset):
     def open(self):
 
         '''template'''
-        template_img = cv2.imread(self.ret['template_img_path'])
+        #template_img = cv2.imread(self.ret['template_img_path'])
+        template_img = Image.open(self.ret['template_img_path'])
+        template_img = np.array(template_img)
+        #print('template_img_path', self.ret['template_img_path'])
 
         img_mean = np.mean(template_img, axis=(0, 1))
+        #img_mean = tuple(map(int, template_img.mean(axis=(0, 1))))
 
         exemplar_img, scale_z, s_z, w_x, h_x = self.get_exemplar_image(   template_img,
                                                                 self.ret['template_target_xywh'],
@@ -99,7 +105,9 @@ class TrainDataLoader(Dataset):
         self.ret['exemplar_img'] = exemplar_img
 
         '''detection'''
-        detection_img = cv2.imread(self.ret['detection_img_path'])
+        #detection_img = cv2.imread(self.ret['detection_img_path'])
+        detection_img = Image.open(self.ret['detection_img_path'])
+        detection_img = np.array(detection_img)
         d = self.ret['detection_target_xywh']
 
         cx, cy, w, h = d  # float type
@@ -117,6 +125,7 @@ class TrainDataLoader(Dataset):
         b_y = np.random.choice(range(-12,12))
         b_y = b_y * s_x
 
+
         instance_img, w_x, h_x, scale_x = self.get_instance_image(  detection_img, d,
                                                                     config.template_img_size,
                                                                     config.detection_img_size,
@@ -125,6 +134,7 @@ class TrainDataLoader(Dataset):
                                                                     img_mean_d )
 
         size_x = config.detection_img_size
+
 
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
@@ -137,13 +147,13 @@ class TrainDataLoader(Dataset):
         cx = x1 + w/2
         cy = y1 + h/2
 
-        im_h, im_w, _ = instance_img.shape
+        '''im_h, im_w, _ = instance_img.shape
         cy_o = (im_h - 1) / 2
         cx_o = (im_w - 1) / 2
         cy = cy_o + np.random.randint(- config.max_translate, config.max_translate + 1)
         cx = cx_o + np.random.randint(- config.max_translate, config.max_translate + 1)
         gt_cx = cx_o - cx
-        gt_cy = cy_o - cy
+        gt_cy = cy_o - cy'''
 
         self.ret['instance_img'] = instance_img
         self.ret['cx, cy, w, h'] = [a_x, b_y, w, h]
@@ -342,8 +352,8 @@ class TrainDataLoader(Dataset):
 
 
     def __getitem__(self, index):
-        if index >= len(self.sub_class_dir):
-            index = random.choice(range(len(self.sub_class_dir)))
+        #if index >= len(self.sub_class_dir):
+        index = random.choice(range(len(self.sub_class_dir)))
         if self.name == 'GOT-10k':
             if index == 8627 or index == 8629 or index == 9057 or index == 9058:
                 index += 1
@@ -360,7 +370,7 @@ class TrainDataLoader(Dataset):
 
 
     def __len__(self):
-        return config.train_epoch_size*32
+        return len(self.sub_class_dir)*32 #config.train_epoch_size*32
 
 if __name__ == "__main__":
 

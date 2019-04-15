@@ -7,9 +7,9 @@ import json
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Tracking')
 
-parser.add_argument('--tracker_path', default='/home/arbi/desktop/GOT-10k', metavar='DIR',help='path to dataset')
+parser.add_argument('--tracker_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--net_path', default='../train/experiments/default/model/model_e2.pth', metavar='DIR',help='path to weight')
+parser.add_argument('--net_path', default='../train/experiments/default/model/model_e1.pth', metavar='DIR',help='path to weight')
 # ../train/experiments/default/model/model_e1.pth # ../model.pth #../siamrpn_7.pth
 # /Users/arbi/Desktop/val
 parser.add_argument('--visualize', default=True, help='visualize')

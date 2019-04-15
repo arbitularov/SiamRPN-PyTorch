@@ -34,14 +34,15 @@ def main():
     model = TrackerSiamRPN()
 
     '''setup train data loader'''
-    name = 'All'
+    name = 'VID'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
         seq_dataset = GOT10k(root_dir, subset='train')
     elif name == 'VID':
-        root_dir = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
-        seq_dataset = ImageNetVID(root_dir, subset=('train'))
+        root_dir = '/home/arbi/desktop/ILSVRC2017_VID'
+        seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
+        print('seq_dataset')
     elif name == 'All':
         root_dir_vid = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
         seq_datasetVID = ImageNetVID(root_dir_vid, subset=('train'))
@@ -58,7 +59,7 @@ def main():
                                 pin_memory = True)
 
     '''setup val data loader'''
-    name = 'All'
+    name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path

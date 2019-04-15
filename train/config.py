@@ -6,7 +6,7 @@ class Config(object):
     template_img_size  = 127
     detection_img_size = 271
     epoches = 200
-    train_epoch_size = 10000
+    train_epoch_size = 9000
     val_epoch_size = 100
 
     start_lr = 3e-2
