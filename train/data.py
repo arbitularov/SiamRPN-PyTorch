@@ -122,8 +122,10 @@ class TrainDataLoader(Dataset):
 
         a_x = np.random.choice(range(-12,12))
         a_x = a_x * s_x
+        a_x = a_x * 0.5
         b_y = np.random.choice(range(-12,12))
         b_y = b_y * s_x
+        b_y = b_y * 0.5
 
 
         instance_img, w_x, h_x, scale_x = self.get_instance_image(  detection_img, d,
@@ -257,9 +259,9 @@ class TrainDataLoader(Dataset):
         neg_index = np.where(iou < config.neg_threshold)[0]
         label = np.ones_like(iou) * -1
         label[pos_index] = 1
-        #print('label[pos_index]', len(label[pos_index]))
+        print('label[pos_index]', len(label[pos_index]))
         label[neg_index] = 0
-        #print('label[neg_index]', len(label[neg_index]))
+        print('label[neg_index]', len(label[neg_index]))
 
         return regression_target, label
 
@@ -277,7 +279,7 @@ class TrainDataLoader(Dataset):
         regression_target = np.hstack((target_x, target_y, target_w, target_h))
         return regression_target
 
-    def compute_iou_old(self, anchors, box):
+    def compute_iou(self, anchors, box):
         if np.array(anchors).ndim == 1:
             anchors = np.array(anchors)[None, :]
         else:
@@ -310,7 +312,7 @@ class TrainDataLoader(Dataset):
         iou = inter_area / (area_anchor + area_gt - inter_area + 1e-6)
         return iou
 
-    def compute_iou(self, anchors, box):
+    def compute_iou_old(self, anchors, box):
         #print('anchors, box', anchors, box)
         gt_box = np.tile(box.reshape(1, -1), (anchors.shape[0], 1))
 
