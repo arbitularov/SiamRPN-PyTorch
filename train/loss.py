@@ -25,6 +25,7 @@ def rpn_cross_entropy_balance(input, target, num_pos, num_neg):
     cal_index_pos = np.array([], dtype=np.int64)
     cal_index_neg = np.array([], dtype=np.int64)
     for batch_id in range(target.shape[0]):
+        print(target[batch_id])
         pos_index = np.random.choice(np.where(target[batch_id].cpu() == 1)[0], num_pos)
         neg_index = np.random.choice(np.where(target[batch_id].cpu() == 0)[0], num_neg)
         cal_index_pos = np.append(cal_index_pos, batch_id * target.shape[1] + pos_index)

@@ -29,7 +29,7 @@ class Config(object):
     out_feature = 19
     max_inter   = 80
     fix_former_3_layers = True
-    pretrained_model = '/Users/arbi/Desktop/alexnet.pth' #'/home/arbi/Загрузки/alexnet.pth'
+    pretrained_model =  '/home/arbi/Загрузки/alexnet.pth' # '/Users/arbi/Desktop/alexnet.pth'
 
     total_stride = 8
     anchor_base_size = 8
@@ -54,7 +54,7 @@ class Config(object):
     '''config for net.py'''
     num_pos = 16
     num_neg = 48
-    lamb    = 5
+    lamb    = 100
 
     ohem_pos = False
     ohem_neg = False
