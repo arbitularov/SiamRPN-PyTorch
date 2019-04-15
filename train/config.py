@@ -2,10 +2,30 @@ import numpy as np
 
 class Config(object):
 
-    '''config for data.py'''
+    '''config for train_siamrpn.py'''
     template_img_size  = 127
     detection_img_size = 271
+    epoches = 200
+    train_epoch_size = 10000
+    val_epoch_size = 100
+
+    start_lr = 3e-2
+    end_lr = 1e-5
+    epoch = 50
+    lr = np.logspace(np.log10(start_lr), np.log10(end_lr), num=epoch)[0]
+    momentum = 0.9
+    weight_decay = 0.0005
+
+    clip = 10                              # grad clip
+
+    anchor_scales = np.array([8, ])
+    anchor_ratios = np.array([0.33, 0.5, 1, 2, 3])
+    anchor_num    = len(anchor_scales) * len(anchor_ratios)
     score_size = int((detection_img_size - template_img_size) / 8 + 1)
+    size = anchor_num * score_size * score_size
+
+    '''config for data.py'''
+
     out_feature = 19
     max_inter   = 80
     fix_former_3_layers = True
@@ -39,26 +59,6 @@ class Config(object):
     ohem_pos = False
     ohem_neg = False
     ohem_reg = False
-
-    '''config for train_siamrpn.py'''
-    epoches = 200
-    train_epoch_size = 10
-    val_epoch_size = 10
-
-    start_lr = 3e-2
-    end_lr = 1e-5
-    epoch = 50
-    lr = np.logspace(np.log10(start_lr), np.log10(end_lr), num=epoch)[0]
-    momentum = 0.9
-    weight_decay = 0.0005
-
-    clip = 10                              # grad clip
-
-    anchor_scales = np.array([8, ])
-    anchor_ratios = np.array([0.33, 0.5, 1, 2, 3])
-    anchor_num    = len(anchor_scales) * len(anchor_ratios)
-
-    size = anchor_num * score_size * score_size
 
 
 config = Config()

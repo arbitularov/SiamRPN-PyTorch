@@ -9,18 +9,19 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from torch.nn import init
-from util import util, AverageMeter, SavePlot
+from config import config
 from net import TrackerSiamRPN
 from data import TrainDataLoader
-from config import config
 from torch.utils.data import DataLoader
+from util import util, AverageMeter, SavePlot
 from got10k.datasets import ImageNetVID, GOT10k
+
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--checkpoint_path', default='../siamrpn_25.pth', help='resume')
+parser.add_argument('--checkpoint_path', default=None, help='resume')
 # /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop
 # 'experiments/default/model/model_e1.pth'
 def main():
@@ -33,11 +34,11 @@ def main():
     model = TrackerSiamRPN()
 
     '''setup train data loader'''
-    name = 'GOT-10k'
+    name = 'All'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
-        seq_dataset = GOT10k(root_dir, subset='val')
+        seq_dataset = GOT10k(root_dir, subset='train')
     elif name == 'VID':
         root_dir = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
         seq_dataset = ImageNetVID(root_dir, subset=('train'))
@@ -51,13 +52,13 @@ def main():
 
     train_data  = TrainDataLoader(seq_dataset, name)
     train_loader = DataLoader(  dataset    = train_data,
-                                batch_size = 1,
+                                batch_size = 32,
                                 shuffle    = True,
                                 num_workers= 16,
                                 pin_memory = True)
 
     '''setup val data loader'''
-    name = 'GOT-10k'
+    name = 'All'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
@@ -75,7 +76,7 @@ def main():
 
     val_data  = TrainDataLoader(seq_dataset_val, name)
     val_loader = DataLoader(  dataset    = val_data,
-                                batch_size = 1,
+                                batch_size = 32,
                                 shuffle    = False,
                                 num_workers= 16,
                                 pin_memory = True)

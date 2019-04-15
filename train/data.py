@@ -80,14 +80,7 @@ class TrainDataLoader(Dataset):
     def open(self):
 
         '''template'''
-
         template_img = cv2.imread(self.ret['template_img_path'])
-        '''if np.random.rand(1) < config.gray_ratio:
-            template_img = cv2.cvtColor(template_img, cv2.COLOR_RGB2GRAY)
-            template_img = cv2.cvtColor(template_img, cv2.COLOR_GRAY2RGB)'''
-        #print("1")
-        '''if config.exem_stretch:
-            template_img, _, _ = self.RandomStretch(template_img, 0, 0)'''
 
         img_mean = np.mean(template_img, axis=(0, 1))
 
@@ -99,38 +92,44 @@ class TrainDataLoader(Dataset):
         size_x = config.template_img_size
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
-        frame = cv2.rectangle(template_img, (x1,y1), (x2,y2), (0, 255, 0), 1)
-        #cv2.imwrite('exemplar_img1.png',frame)
+        #frame = cv2.rectangle(exemplar_img, (x1,y1), (x2,y2), (0, 255, 0), 1)
+        #cv2.imwrite('exemplar_img.png',frame)
         #cv2.waitKey(0)
 
         self.ret['exemplar_img'] = exemplar_img
 
-
-
         '''detection'''
-
         detection_img = cv2.imread(self.ret['detection_img_path'])
-        '''if np.random.rand(1) < config.gray_ratio:
-            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_RGB2GRAY)
-            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_GRAY2RGB)'''
         d = self.ret['detection_target_xywh']
 
+        cx, cy, w, h = d  # float type
 
-        #detection_img, gt_w, gt_h = self.RandomStretch(detection_img, d[2], d[3])
+        wc_z = w + 0.5 * (w + h)
+        hc_z = h + 0.5 * (w + h)
+        s_z = np.sqrt(wc_z * hc_z)
 
+        s_x = s_z / 135
 
         img_mean_d = tuple(map(int, detection_img.mean(axis=(0, 1))))
+
+        a_x = np.random.choice(range(-30,30))
+        a_x = a_x * s_x
+        b_y = np.random.choice(range(-30,30))
+        b_y = b_y * s_x
 
         instance_img, w_x, h_x, scale_x = self.get_instance_image(  detection_img, d,
                                                                     config.template_img_size,
                                                                     config.detection_img_size,
-                                                                    config.context, img_mean_d )
+                                                                    config.context,
+                                                                    a_x, b_y,
+                                                                    img_mean_d )
 
         size_x = config.detection_img_size
 
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
-        frame_d = cv2.rectangle(instance_img, (x1,y1), (x2,y2), (0, 255, 0), 2)
+
+        #frame_d = cv2.rectangle(instance_img, (int(x1-(a_x*scale_x)),int(y1-(b_y*scale_x))), (int(x2-(a_x*scale_x)),int(y2-(b_y*scale_x))), (0, 255, 0), 2)
         #cv2.imwrite('detection_img.png',frame_d)
 
         w  = x2 - x1
@@ -147,20 +146,7 @@ class TrainDataLoader(Dataset):
         gt_cy = cy_o - cy
 
         self.ret['instance_img'] = instance_img
-        self.ret['cx, cy, w, h'] = [gt_cx, gt_cy, w, h]
-
-
-
-    def RandomStretch(self, sample, gt_w, gt_h):
-        scale_h = 1.0 + np.random.uniform(-config.scale_resize, config.scale_resize)
-        scale_w = 1.0 + np.random.uniform(-config.scale_resize, config.scale_resize)
-        h, w = sample.shape[:2]
-        shape = int(w * scale_w), int(h * scale_h)
-        scale_w = int(w * scale_w) / w
-        scale_h = int(h * scale_h) / h
-        gt_w = gt_w * scale_w
-        gt_h = gt_h * scale_h
-        return cv2.resize(sample, shape, cv2.INTER_LINEAR), gt_w, gt_h
+        self.ret['cx, cy, w, h'] = [a_x, b_y, w, h]
 
 
     def get_exemplar_image(self, img, bbox, size_z, context_amount, img_mean=None):
@@ -178,12 +164,15 @@ class TrainDataLoader(Dataset):
 
         return exemplar_img, scale_z, s_z, w_x, h_x
 
-    def get_instance_image(self, img, bbox, size_z, size_x, context_amount, img_mean=None):
+    def get_instance_image(self, img, bbox, size_z, size_x, context_amount, a_x, b_y, img_mean=None):
+
         cx, cy, w, h = bbox  # float type
 
+        cx, cy = cx + a_x , cy + b_y
         wc_z = w + context_amount * (w + h)
         hc_z = h + context_amount * (w + h)
         s_z = np.sqrt(wc_z * hc_z) # the width of the crop box
+
         scale_z = size_z / s_z
 
         s_x = s_z * size_x / size_z
@@ -198,6 +187,7 @@ class TrainDataLoader(Dataset):
 
     def crop_and_pad(self, img, cx, cy, model_sz, original_sz, img_mean=None):
         im_h, im_w, _ = img.shape
+        #print('original_sz', original_sz)
 
         xmin = cx - (original_sz - 1) / 2
         xmax = xmin + original_sz - 1
@@ -229,6 +219,7 @@ class TrainDataLoader(Dataset):
         else:
             im_patch_original = img[int(ymin):int(ymax + 1), int(xmin):int(xmax + 1), :]
         if not np.array_equal(model_sz, original_sz):
+            #print('im_patch_original', im_patch_original.shape)
             im_patch = cv2.resize(im_patch_original, (model_sz, model_sz))  # zzp: use cv to get a better speed
         else:
             im_patch = im_patch_original

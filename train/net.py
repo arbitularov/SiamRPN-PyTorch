@@ -7,7 +7,6 @@ import random
 import numpy as np
 import torch.nn as nn
 from util import util
-from loss import MultiBoxLoss
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from config import config
@@ -35,8 +34,6 @@ class TrackerSiamRPN(Tracker):
             self.net = self.net.to(self.device)
 
         '''setup optimizer'''
-        self.criterion   = MultiBoxLoss()
-
         self.optimizer   = torch.optim.SGD(
             self.net.parameters(),
             lr           = config.lr,
