@@ -259,9 +259,9 @@ class TrainDataLoader(Dataset):
         neg_index = np.where(iou < config.neg_threshold)[0]
         label = np.ones_like(iou) * -1
         label[pos_index] = 1
-        print('label[pos_index]', len(label[pos_index]))
+        #print('label[pos_index]', len(label[pos_index]))
         label[neg_index] = 0
-        print('label[neg_index]', len(label[neg_index]))
+        #print('label[neg_index]', len(label[neg_index]))
 
         return regression_target, label
 

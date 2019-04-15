@@ -16,9 +16,9 @@ class Util(object):
         return seq_dataset
 
     def generate_anchors(self, total_stride, base_size, scales, ratios, score_size):
-        #print(total_stride, base_size, scales, ratios, score_size)
-        anchor_num = len(ratios) * len(scales)
+        anchor_num = len(ratios) * len(scales) # 5
         anchor = np.zeros((anchor_num, 4), dtype=np.float32)
+
         size = base_size * base_size
         count = 0
         for ratio in ratios:
