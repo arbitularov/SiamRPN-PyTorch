@@ -112,9 +112,9 @@ class TrainDataLoader(Dataset):
 
         img_mean_d = tuple(map(int, detection_img.mean(axis=(0, 1))))
 
-        a_x = np.random.choice(range(-30,30))
+        a_x = np.random.choice(range(-12,12))
         a_x = a_x * s_x
-        b_y = np.random.choice(range(-30,30))
+        b_y = np.random.choice(range(-12,12))
         b_y = b_y * s_x
 
         instance_img, w_x, h_x, scale_x = self.get_instance_image(  detection_img, d,
