@@ -360,7 +360,7 @@ class TrainDataLoader(Dataset):
 
 
     def __len__(self):
-        return config.train_epoch_size
+        return config.train_epoch_size*32
 
 if __name__ == "__main__":
 

@@ -29,7 +29,7 @@ class Config(object):
     out_feature = 19
     max_inter   = 80
     fix_former_3_layers = True
-    pretrained_model = '/Users/arbi/Desktop/alexnet.pth'
+    pretrained_model = '/home/arbi/Загрузки/alexnet.pth' #'/Users/arbi/Desktop/alexnet.pth'
 
     total_stride = 8
     anchor_base_size = 8

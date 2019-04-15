@@ -112,7 +112,7 @@ def main():
     for epoch in range(config.epoches):
         model.net.train()
         if config.fix_former_3_layers:
-            if torch.cuda.device_count() > 1:
+            if 1 > 1:
                 util.freeze_layers(model.net.module)
             else:
                 util.freeze_layers(model.net)

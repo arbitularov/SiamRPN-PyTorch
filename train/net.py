@@ -56,6 +56,7 @@ class TrackerSiamRPN(Tracker):
         template, detection, regression_target, conf_target = dataset
         if self.cuda:
             template, detection = template.cuda(), detection.cuda()
+            regression_target, conf_target = regression_target.cuda(), conf_target.cuda()
 
         pred_score, pred_regression = self.net(template, detection)
 
