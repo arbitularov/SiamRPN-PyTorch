@@ -40,7 +40,7 @@ class TrackerSiamRPN(Tracker):
             momentum     = config.momentum,
             weight_decay = config.weight_decay)
 
-        self.anchors     = util.generate_anchors(   config.total_stride,
+        self.anchors     = util.generate_anchors(   config.anchor_total_stride,
                                                     config.anchor_base_size,
                                                     config.anchor_scales,
                                                     config.anchor_ratios,
@@ -67,24 +67,23 @@ class TrackerSiamRPN(Tracker):
         cls_loss = rpn_cross_entropy_balance(   pred_conf,
                                                 conf_target,
                                                 config.num_pos,
-                                                config.num_neg)
-
-        '''self.anchors,
-        ohem_pos=config.ohem_pos,
-        ohem_neg=config.ohem_neg)'''
+                                                config.num_neg,
+                                                self.anchors,
+                                                ohem_pos=config.ohem_pos,
+                                                ohem_neg=config.ohem_neg)
 
         reg_loss = rpn_smoothL1(pred_offset,
                                 regression_target,
-                                conf_target)
-        '''config.num_pos,
-        ohem=config.ohem_reg)'''
+                                conf_target,
+                                config.num_pos,
+                                ohem=config.ohem_reg)
 
         loss = cls_loss + config.lamb * reg_loss
 
         if train:
             self.optimizer.zero_grad()
             loss.backward()
-            #torch.nn.utils.clip_grad_norm_(self.net.parameters(), config.clip)
+            torch.nn.utils.clip_grad_norm_(self.net.parameters(), config.clip)
             self.optimizer.step()
 
         return cls_loss, reg_loss, loss

@@ -25,11 +25,11 @@ class TrainDataLoader(Dataset):
         self.ret              = {}
         self.count            = 0
         self.name             = name
-        self.anchors          = util.generate_anchors(  config.total_stride,
+        self.anchors          = util.generate_anchors(  config.anchor_total_stride,
                                                         config.anchor_base_size,
                                                         config.anchor_scales,
                                                         config.anchor_ratios,
-                                                        config.anchor_valid_scope) #centor
+                                                        config.score_size) #centor
 
     def get_transform_for_train(self):
         transform_list = []
@@ -120,12 +120,12 @@ class TrainDataLoader(Dataset):
 
         img_mean_d = tuple(map(int, detection_img.mean(axis=(0, 1))))
 
-        a_x = np.random.choice(range(-12,12))
-        a_x = a_x * s_x
-        a_x = a_x * 0.5
-        b_y = np.random.choice(range(-12,12))
-        b_y = b_y * s_x
-        b_y = b_y * 0.5
+        a_x_ = np.random.choice(range(-75,75))
+        a_x = a_x_ * s_x
+
+        b_y_ = np.random.choice(range(-75,75))
+        b_y = b_y_ * s_x
+
 
 
         instance_img, w_x, h_x, scale_x = self.get_instance_image(  detection_img, d,
@@ -156,9 +156,10 @@ class TrainDataLoader(Dataset):
         cx = cx_o + np.random.randint(- config.max_translate, config.max_translate + 1)
         gt_cx = cx_o - cx
         gt_cy = cy_o - cy'''
+        #print('[a_x_, b_y_, w, h]', [a_x_, b_y_, w, h])
 
         self.ret['instance_img'] = instance_img
-        self.ret['cx, cy, w, h'] = [a_x, b_y, w, h]
+        self.ret['cx, cy, w, h'] = [a_x_*0.15, b_y_*0.15, w, h]
 
 
     def get_exemplar_image(self, img, bbox, size_z, context_amount, img_mean=None):
@@ -252,7 +253,7 @@ class TrainDataLoader(Dataset):
 
     def compute_target(self, anchors, box):
         regression_target = self.box_transform(anchors, box)
-
+        anchors[0] = box
         iou = self.compute_iou(anchors, box).flatten()
         #print(np.max(iou))
         pos_index = np.where(iou > config.pos_threshold)[0]
@@ -262,6 +263,11 @@ class TrainDataLoader(Dataset):
         #print('label[pos_index]', len(label[pos_index]))
         label[neg_index] = 0
         #print('label[neg_index]', len(label[neg_index]))
+        #max_index = np.argsort(iou.flatten())[-20:]
+        boxes = anchors[pos_index]
+
+        #print('box', box)
+        #print('boxes', boxes)
 
         return regression_target, label
 

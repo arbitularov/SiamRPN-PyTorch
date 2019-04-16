@@ -4,7 +4,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-def rpn_cross_entropy(input, target):
+def rpn_cross_entropy_old(input, target):
     r"""
     :param input: (15x15x5,2)
     :param target: (15x15x5,)
@@ -16,7 +16,7 @@ def rpn_cross_entropy(input, target):
     return loss
 
 
-def rpn_cross_entropy_balance(input, target, num_pos, num_neg):
+def rpn_cross_entropy_balance_old(input, target, num_pos, num_neg):
     r"""
     :param input: (N,1125,2)
     :param target: (15x15x5,)
@@ -53,7 +53,7 @@ def rpn_cross_entropy_balance(input, target, num_pos, num_neg):
 #     return loss
 
 
-def rpn_smoothL1(input, target, label):
+def rpn_smoothL1_old(input, target, label):
     r'''
     :param input: torch.Size([1, 1125, 4])
     :param target: torch.Size([1, 1125, 4])
@@ -69,7 +69,7 @@ def rpn_smoothL1(input, target, label):
 
 
 
-'''def rpn_cross_entropy_balance(input, target, num_pos, num_neg, anchors, ohem_pos=None, ohem_neg=None):
+def rpn_cross_entropy_balance(input, target, num_pos, num_neg, anchors, ohem_pos=None, ohem_neg=None):
     r"""
     :param input: (N,1125,2)
     :param target: (15x15x5,)
@@ -142,10 +142,10 @@ def rpn_smoothL1(input, target, label):
 
 def rpn_smoothL1(input, target, label, num_pos=16, ohem=None):
 
-    :param input: torch.Size([1, 1125, 4])
+    ''':param input: torch.Size([1, 1125, 4])
     :param target: torch.Size([1, 1125, 4])
             label: (torch.Size([1, 1125]) pos neg or ignore
-    :return:
+    :return:'''
 
     cuda = torch.cuda.is_available()
     loss_all = []
@@ -177,4 +177,4 @@ def rpn_smoothL1(input, target, label, num_pos=16, ohem=None):
 
             loss_all.append(loss_bid.mean())
     final_loss = torch.stack(loss_all).mean()
-    return final_loss'''
+    return final_loss

@@ -52,7 +52,7 @@ def main():
 
     train_data  = TrainDataLoader(seq_dataset, name)
     train_loader = DataLoader(  dataset    = train_data,
-                                batch_size = 32,
+                                batch_size = 64,
                                 shuffle    = True,
                                 num_workers= 16,
                                 pin_memory = True)
@@ -76,7 +76,7 @@ def main():
 
     val_data  = TrainDataLoader(seq_dataset_val, name)
     val_loader = DataLoader(  dataset    = val_data,
-                                batch_size = 32,
+                                batch_size = 64,
                                 shuffle    = False,
                                 num_workers= 16,
                                 pin_memory = True)

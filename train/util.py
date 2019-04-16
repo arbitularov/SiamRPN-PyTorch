@@ -36,15 +36,24 @@ class Util(object):
 
         anchor = np.tile(anchor, score_size * score_size).reshape((-1, 4))
         # (5,4x225) to (225x5,4)
-        ori = - (score_size // 2) * total_stride
+
+        ori = - (score_size // 2) * total_stride # 8 * 8 = 64
+        #print('score_size', score_size)
+        #print('total_stride', total_stride)
+        #print('ori', ori)
+
         # the left displacement
         xx, yy = np.meshgrid([ori + total_stride * dx for dx in range(score_size)],
                              [ori + total_stride * dy for dy in range(score_size)])
+        #print('xx, yy ', xx, yy )
         # (15,15)
         xx, yy = np.tile(xx.flatten(), (anchor_num, 1)).flatten(), \
                  np.tile(yy.flatten(), (anchor_num, 1)).flatten()
         # (15,15) to (225,1) to (5,225) to (225x5,1)
+        #print('xx1, yy1', xx, yy )
+
         anchor[:, 0], anchor[:, 1] = xx.astype(np.float32), yy.astype(np.float32)
+        #print('anchor', anchor)
         return anchor
 
     # freeze layers
