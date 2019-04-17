@@ -1,8 +1,54 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
+import torch
+import cv2
 
 class Util(object):
+
+    def add_box_img(self, img, boxes, color=(0, 255, 0), x = 1, y = 1):
+        # boxes (x,y,w,h)
+        if boxes.ndim == 1:
+            boxes = boxes[None, :]
+        img = img.copy()
+        img_ctx = (img.shape[1] - 1) / 2
+        img_cty = (img.shape[0] - 1) / 2
+        for box in boxes:
+            point_1 = [img_ctx - box[2] / 2 + (box[0]/x) + 0.5, img_cty - box[3] / 2 + (box[1]/y) + 0.5]
+            point_2 = [img_ctx + box[2] / 2 + (box[0]/x) - 0.5, img_cty + box[3] / 2 + (box[1]/y) - 0.5]
+            point_1[0] = np.clip(point_1[0], 0, img.shape[1])
+            point_2[0] = np.clip(point_2[0], 0, img.shape[1])
+            point_1[1] = np.clip(point_1[1], 0, img.shape[0])
+            point_2[1] = np.clip(point_2[1], 0, img.shape[0])
+            img = cv2.rectangle(img, (int(point_1[0]), int(point_1[1])), (int(point_2[0]), int(point_2[1])),
+                                color, 2)
+        return img
+
+    def get_topk_box(self, cls_score, pred_regression, anchors, topk=10):
+        # anchors xc,yc,w,h
+        regress_offset = pred_regression.cpu().detach().numpy()
+
+        scores, index = torch.topk(cls_score, topk, )
+        index = index.view(-1).cpu().detach().numpy()
+
+        topk_offset = regress_offset[index, :]
+        anchors = anchors[index, :]
+        pred_box = self.box_transform_inv(anchors, topk_offset)
+        return pred_box
+
+    def box_transform_inv(self, anchors, offset):
+        anchor_xctr = anchors[:, :1]
+        anchor_yctr = anchors[:, 1:2]
+        anchor_w = anchors[:, 2:3]
+        anchor_h = anchors[:, 3:]
+        offset_x, offset_y, offset_w, offset_h = offset[:, :1], offset[:, 1:2], offset[:, 2:3], offset[:, 3:],
+
+        box_cx = anchor_w * offset_x + anchor_xctr
+        box_cy = anchor_h * offset_y + anchor_yctr
+        box_w = anchor_w * np.exp(offset_w)
+        box_h = anchor_h * np.exp(offset_h)
+        box = np.hstack([box_cx, box_cy, box_w, box_h])
+        return box
 
     def data_split(self, seq_datasetVID, seq_datasetGOT):
         seq_dataset = []
@@ -18,7 +64,6 @@ class Util(object):
     def generate_anchors(self, total_stride, base_size, scales, ratios, score_size):
         anchor_num = len(ratios) * len(scales) # 5
         anchor = np.zeros((anchor_num, 4), dtype=np.float32)
-
         size = base_size * base_size
         count = 0
         for ratio in ratios:
@@ -36,24 +81,18 @@ class Util(object):
 
         anchor = np.tile(anchor, score_size * score_size).reshape((-1, 4))
         # (5,4x225) to (225x5,4)
-
-        ori = - (score_size // 2) * total_stride # 8 * 8 = 64
-        #print('score_size', score_size)
-        #print('total_stride', total_stride)
-        #print('ori', ori)
-
+        ori = - (score_size // 2) * total_stride
         # the left displacement
         xx, yy = np.meshgrid([ori + total_stride * dx for dx in range(score_size)],
                              [ori + total_stride * dy for dy in range(score_size)])
-        #print('xx, yy ', xx, yy )
+        #print(xx, yy)
+
         # (15,15)
         xx, yy = np.tile(xx.flatten(), (anchor_num, 1)).flatten(), \
                  np.tile(yy.flatten(), (anchor_num, 1)).flatten()
         # (15,15) to (225,1) to (5,225) to (225x5,1)
-        #print('xx1, yy1', xx, yy )
-
         anchor[:, 0], anchor[:, 1] = xx.astype(np.float32), yy.astype(np.float32)
-        #print('anchor', anchor)
+        #print(anchor, anchor.shape)
         return anchor
 
     # freeze layers
@@ -83,6 +122,11 @@ class Util(object):
         else:
             print('You are using "{}" experiment'.format(experiment_name))
         return experiment_name_dir
+
+    def adjust_learning_rate(self, optimizer, decay=0.1):
+        """Sets the learning rate to the initial LR decayed by 0.5 every 20 epochs"""
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = decay * param_group['lr']
 
 util = Util()
 

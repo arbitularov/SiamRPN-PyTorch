@@ -6,17 +6,19 @@ class Config(object):
     template_img_size  = 127
     detection_img_size = 255
     epoches = 200
-    train_epoch_size = 5000
+    train_epoch_size = 10000
     val_epoch_size = 100
 
-    start_lr = 3e-2
-    end_lr = 1e-5
+    start_lr = 3e-6 #3e-2
+    end_lr = 1e-7
+    warm_lr = 1e-3
+    warm_scale = warm_lr/start_lr
     epoch = 50
     lr = np.logspace(np.log10(start_lr), np.log10(end_lr), num=epoch)[0]
     momentum = 0.9
     weight_decay = 0.0005
 
-    clip = 10                              # grad clip
+    clip = 100                           # grad clip
 
     anchor_scales = np.array([8, ])
     anchor_ratios = np.array([0.33, 0.5, 1, 2, 3])
@@ -55,7 +57,7 @@ class Config(object):
     '''config for net.py'''
     num_pos = 16
     num_neg = 48
-    lamb    = 100
+    lamb    = 5
 
     ohem_pos = False
     ohem_neg = False

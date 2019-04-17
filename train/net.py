@@ -46,7 +46,7 @@ class TrackerSiamRPN(Tracker):
                                                     config.anchor_ratios,
                                                     config.anchor_valid_scope)
 
-    def step(self, epoch, dataset, train=True):
+    def step(self, epoch, dataset,i = 0,  train=True):
 
         if train:
             self.net.train()
@@ -80,11 +80,36 @@ class TrackerSiamRPN(Tracker):
 
         loss = cls_loss + config.lamb * reg_loss
 
+        anchors_show = self.anchors
+        exem_img = template[0].cpu().numpy().transpose(1, 2, 0)  # (127, 127, 3)
+        #cv2.imwrite('exem_img.png', exem_img)
+
+        inst_img = detection[0].cpu().numpy().transpose(1, 2, 0) # (255, 255, 3)
+        #cv2.imwrite('inst_img.png', inst_img)
+
+
+
+        topk = 1
+        cls_pred = F.softmax(pred_conf, dim=2)[0, :, 1]
+
+        topk_box = util.get_topk_box(cls_pred, pred_offset[0], anchors_show, topk=topk)
+        img_box = util.add_box_img(inst_img, topk_box, color=(0, 0, 255))
+
+        cv2.imwrite('pred_inst.png', img_box)
+
+        cls_pred = conf_target[0]
+        gt_box = util.get_topk_box(cls_pred, regression_target[0], anchors_show)
+        img_box = util.add_box_img(img_box, gt_box, color=(255, 0, 0), x = 0.16, y = 0.16)
+        cv2.imwrite('pred_inst_gt.png', img_box)
+
         if train:
             self.optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.net.parameters(), config.clip)
+            #torch.nn.utils.clip_grad_norm_(self.net.parameters(), config.clip)
             self.optimizer.step()
+
+            if i >= config.train_epoch_size - 1:
+                util.adjust_learning_rate(self.optimizer, 1 / config.warm_scale)
 
         return cls_loss, reg_loss, loss
 

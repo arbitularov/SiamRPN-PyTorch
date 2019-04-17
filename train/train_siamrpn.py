@@ -16,10 +16,12 @@ from torch.utils.data import DataLoader
 from util import util, AverageMeter, SavePlot
 from got10k.datasets import ImageNetVID, GOT10k
 
+torch.manual_seed(1234) # config.seed
+
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--checkpoint_path', default=None, help='resume')
 # /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop
@@ -53,9 +55,9 @@ def main():
 
     train_data  = TrainDataLoader(seq_dataset, name)
     train_loader = DataLoader(  dataset    = train_data,
-                                batch_size = 64,
+                                batch_size = 1,
                                 shuffle    = True,
-                                num_workers= 16,
+                                num_workers= 1,
                                 pin_memory = True)
 
     '''setup val data loader'''
@@ -77,9 +79,9 @@ def main():
 
     val_data  = TrainDataLoader(seq_dataset_val, name)
     val_loader = DataLoader(  dataset    = val_data,
-                                batch_size = 8,
+                                batch_size = 1,
                                 shuffle    = False,
-                                num_workers= 16,
+                                num_workers= 1,
                                 pin_memory = True)
 
     '''load weights'''
@@ -115,16 +117,13 @@ def main():
     for epoch in range(config.epoches):
         model.net.train()
         if config.fix_former_3_layers:
-            if 1 > 1:
-                util.freeze_layers(model.net.module)
-            else:
                 util.freeze_layers(model.net)
         print('Train epoch {}/{}'.format(epoch+1, config.epoches))
         train_loss = []
         with tqdm(total=config.train_epoch_size) as progbar:
             for i, dataset in enumerate(train_loader):
 
-                closs, rloss, loss = model.step(epoch, dataset, train=True)
+                closs, rloss, loss = model.step(epoch, dataset,i,  train=True)
 
                 closs_ = closs.cpu().item()
 
@@ -141,6 +140,7 @@ def main():
 
                 progbar.update()
                 train_loss.append(train_tlosses.avg)
+                #print('i', i, 'config.train_epoch_size - 1', config.train_epoch_size - 1)
 
                 if i >= config.train_epoch_size - 1:
                     '''save plot'''
@@ -184,6 +184,7 @@ def main():
         val_loss = np.mean(val_loss)
         train_val_plot.update(train_loss, val_loss)
         print ('Train loss: {}, val loss: {}'.format(train_loss, val_loss))
+
 
 if __name__ == '__main__':
     main()

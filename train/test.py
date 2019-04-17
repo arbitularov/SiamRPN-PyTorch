@@ -23,8 +23,8 @@ coint = 0
 for box in boxes:
     print(box)
     cx , cy, w, h = box
-    cx_big = 255/2 - (cx/0.16)
-    cy_big = 255/2 - (cy/0.16)
+    cx_big = 255/2 + (cx/0.16)
+    cy_big = 255/2 + (cy/0.16)
 
     x1 = int(cx_big - w/2)
     x2 = int(cx_big + w/2)

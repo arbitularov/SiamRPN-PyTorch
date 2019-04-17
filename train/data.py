@@ -29,7 +29,7 @@ class TrainDataLoader(Dataset):
                                                         config.anchor_base_size,
                                                         config.anchor_scales,
                                                         config.anchor_ratios,
-                                                        config.score_size) 
+                                                        config.score_size)
 
     def get_transform_for_train(self):
         transform_list = []
@@ -141,8 +141,8 @@ class TrainDataLoader(Dataset):
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
 
-        #frame_d = cv2.rectangle(instance_img, (int(x1-(a_x*scale_x)),int(y1-(b_y*scale_x))), (int(x2-(a_x*scale_x)),int(y2-(b_y*scale_x))), (0, 255, 0), 1)
-        #cv2.imwrite('detection_img_ori.png',frame_d)
+        frame_d = cv2.rectangle(instance_img, (int(x1+(a_x*scale_x)),int(y1+(b_y*scale_x))), (int(x2+(a_x*scale_x)),int(y2+(b_y*scale_x))), (0, 255, 0), 1)
+        cv2.imwrite('detection_img_ori.png',frame_d)
 
         w  = x2 - x1
         h  = y2 - y1
@@ -181,7 +181,7 @@ class TrainDataLoader(Dataset):
 
         cx, cy, w, h = bbox  # float type
 
-        cx, cy = cx + a_x , cy + b_y
+        cx, cy = cx - a_x , cy - b_y
         wc_z = w + context_amount * (w + h)
         hc_z = h + context_amount * (w + h)
         s_z = np.sqrt(wc_z * hc_z) # the width of the crop box
@@ -252,6 +252,8 @@ class TrainDataLoader(Dataset):
         return regression_target, conf_target
 
     def compute_target(self, anchors, box):
+        #box = [-(box[0]), -(box[1]), box[2], box[3]]
+        #print('box', box)
         regression_target = self.box_transform(anchors, box)
 
         iou = self.compute_iou(anchors, box).flatten()
@@ -265,12 +267,12 @@ class TrainDataLoader(Dataset):
         #print('label[neg_index]', len(label[neg_index]))
         #max_index = np.argsort(iou.flatten())[-20:]
         boxes = anchors[pos_index]
-        '''f = open('text.txt', 'w')
+        f = open('text.txt', 'w')
 
         for box in boxes:
-            f.write('{}'.format(box))
+            f.write('{}\n'.format(box))
 
-            cx , cy, w, h = box
+            '''cx , cy, w, h = box
             cx_big = (cx/0.16) + 255/2
             cy_big = (cy/0.16) + 255/2
 
@@ -282,8 +284,8 @@ class TrainDataLoader(Dataset):
 
             frame_d = cv2.rectangle(self.ret['instance_img'], (x1,y1), (x2,y2), (0, 255, 0), 2)'''
 
-        #f.close()
-        #cv2.imwrite('detection_img.png',self.ret['instance_img'])
+        f.close()
+        cv2.imwrite('detection_img.png',self.ret['instance_img'])
         #os.exit()
 
         #print('box', box)
