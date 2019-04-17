@@ -19,7 +19,7 @@ from got10k.datasets import ImageNetVID, GOT10k
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--checkpoint_path', default=None, help='resume')
 # /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop
@@ -54,7 +54,7 @@ def main():
     train_loader = DataLoader(  dataset    = train_data,
                                 batch_size = 64,
                                 shuffle    = True,
-                                num_workers= 4,
+                                num_workers= 16,
                                 pin_memory = True)
 
     '''setup val data loader'''
@@ -78,7 +78,7 @@ def main():
     val_loader = DataLoader(  dataset    = val_data,
                                 batch_size = 8,
                                 shuffle    = False,
-                                num_workers= 4,
+                                num_workers= 16,
                                 pin_memory = True)
 
     '''load weights'''

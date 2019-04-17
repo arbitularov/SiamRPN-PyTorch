@@ -141,8 +141,8 @@ class TrainDataLoader(Dataset):
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
 
-        frame_d = cv2.rectangle(instance_img, (int(x1-(a_x*scale_x)),int(y1-(b_y*scale_x))), (int(x2-(a_x*scale_x)),int(y2-(b_y*scale_x))), (0, 255, 0), 1)
-        cv2.imwrite('detection_img_ori.png',frame_d)
+        #frame_d = cv2.rectangle(instance_img, (int(x1-(a_x*scale_x)),int(y1-(b_y*scale_x))), (int(x2-(a_x*scale_x)),int(y2-(b_y*scale_x))), (0, 255, 0), 1)
+        #cv2.imwrite('detection_img_ori.png',frame_d)
 
         w  = x2 - x1
         h  = y2 - y1
@@ -156,7 +156,7 @@ class TrainDataLoader(Dataset):
         cx = cx_o + np.random.randint(- config.max_translate, config.max_translate + 1)
         gt_cx = cx_o - cx
         gt_cy = cy_o - cy'''
-        print('[a_x_, b_y_, w, h]', [int(a_x_*0.16), int(b_y_*0.16), w, h])
+        #print('[a_x_, b_y_, w, h]', [int(a_x_*0.16), int(b_y_*0.16), w, h])
 
         self.ret['instance_img'] = instance_img
         self.ret['cx, cy, w, h'] = [int(a_x_*0.16), int(b_y_*0.16), w, h]
@@ -265,11 +265,11 @@ class TrainDataLoader(Dataset):
         #print('label[neg_index]', len(label[neg_index]))
         #max_index = np.argsort(iou.flatten())[-20:]
         boxes = anchors[pos_index]
-        f = open('text.txt', 'w')
+        '''f = open('text.txt', 'w')
 
         for box in boxes:
-            f.write('{}\n'.format(box))
-            '''
+            f.write('{}'.format(box))
+
             cx , cy, w, h = box
             cx_big = (cx/0.16) + 255/2
             cy_big = (cy/0.16) + 255/2
@@ -282,9 +282,9 @@ class TrainDataLoader(Dataset):
 
             frame_d = cv2.rectangle(self.ret['instance_img'], (x1,y1), (x2,y2), (0, 255, 0), 2)'''
 
-        f.close()
-        cv2.imwrite('detection_img.png',self.ret['instance_img'])
-        os.exit()
+        #f.close()
+        #cv2.imwrite('detection_img.png',self.ret['instance_img'])
+        #os.exit()
 
         #print('box', box)
         #print('boxes', boxes)
@@ -303,7 +303,7 @@ class TrainDataLoader(Dataset):
         target_w = np.log(gt_w / anchor_w)
         target_h = np.log(gt_h / anchor_h)
         regression_target = np.hstack((target_x, target_y, target_w, target_h))
-        print(regression_target)
+        #print(regression_target)
         return regression_target
 
     def compute_iou(self, anchors, box):
