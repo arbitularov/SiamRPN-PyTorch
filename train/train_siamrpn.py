@@ -32,6 +32,7 @@ def main():
 
     '''model on gpu'''
     model = TrackerSiamRPN()
+    model.net.init_weights()
 
     '''setup train data loader'''
     name = 'VID'

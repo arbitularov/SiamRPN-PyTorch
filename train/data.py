@@ -29,7 +29,7 @@ class TrainDataLoader(Dataset):
                                                         config.anchor_base_size,
                                                         config.anchor_scales,
                                                         config.anchor_ratios,
-                                                        config.score_size) #centor
+                                                        config.score_size) 
 
     def get_transform_for_train(self):
         transform_list = []
