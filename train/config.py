@@ -39,7 +39,7 @@ class Config(object):
 
     valid_scope = int((detection_img_size - template_img_size) / total_stride / 2)
     anchor_valid_scope = 2 * valid_scope + 1
-    pos_threshold = 0.6
+    pos_threshold = 0.7
     neg_threshold = 0.3
 
     context = 0.5

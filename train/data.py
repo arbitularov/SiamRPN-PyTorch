@@ -141,8 +141,8 @@ class TrainDataLoader(Dataset):
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
 
-        #frame_d = cv2.rectangle(instance_img, (int(x1-(a_x*scale_x)),int(y1-(b_y*scale_x))), (int(x2-(a_x*scale_x)),int(y2-(b_y*scale_x))), (0, 255, 0), 2)
-        #cv2.imwrite('detection_img.png',frame_d)
+        frame_d = cv2.rectangle(instance_img, (int(x1-(a_x*scale_x)),int(y1-(b_y*scale_x))), (int(x2-(a_x*scale_x)),int(y2-(b_y*scale_x))), (0, 255, 0), 1)
+        cv2.imwrite('detection_img_ori.png',frame_d)
 
         w  = x2 - x1
         h  = y2 - y1
@@ -156,10 +156,10 @@ class TrainDataLoader(Dataset):
         cx = cx_o + np.random.randint(- config.max_translate, config.max_translate + 1)
         gt_cx = cx_o - cx
         gt_cy = cy_o - cy'''
-        #print('[a_x_, b_y_, w, h]', [a_x_, b_y_, w, h])
+        print('[a_x_, b_y_, w, h]', [int(a_x_*0.16), int(b_y_*0.16), w, h])
 
         self.ret['instance_img'] = instance_img
-        self.ret['cx, cy, w, h'] = [a_x_*0.15, b_y_*0.15, w, h]
+        self.ret['cx, cy, w, h'] = [int(a_x_*0.16), int(b_y_*0.16), w, h]
 
 
     def get_exemplar_image(self, img, bbox, size_z, context_amount, img_mean=None):
@@ -253,7 +253,7 @@ class TrainDataLoader(Dataset):
 
     def compute_target(self, anchors, box):
         regression_target = self.box_transform(anchors, box)
-        anchors[0] = box
+
         iou = self.compute_iou(anchors, box).flatten()
         #print(np.max(iou))
         pos_index = np.where(iou > config.pos_threshold)[0]
@@ -265,6 +265,26 @@ class TrainDataLoader(Dataset):
         #print('label[neg_index]', len(label[neg_index]))
         #max_index = np.argsort(iou.flatten())[-20:]
         boxes = anchors[pos_index]
+        f = open('text.txt', 'w')
+
+        for box in boxes:
+            f.write('{}\n'.format(box))
+            '''
+            cx , cy, w, h = box
+            cx_big = (cx/0.16) + 255/2
+            cy_big = (cy/0.16) + 255/2
+
+            x1 = cx_big - w/2
+            x2 = cx_big + w/2
+
+            y1 = cy_big - h/2
+            y2 = cy_big + h/2
+
+            frame_d = cv2.rectangle(self.ret['instance_img'], (x1,y1), (x2,y2), (0, 255, 0), 2)'''
+
+        f.close()
+        cv2.imwrite('detection_img.png',self.ret['instance_img'])
+        os.exit()
 
         #print('box', box)
         #print('boxes', boxes)
@@ -283,6 +303,7 @@ class TrainDataLoader(Dataset):
         target_w = np.log(gt_w / anchor_w)
         target_h = np.log(gt_h / anchor_h)
         regression_target = np.hstack((target_x, target_y, target_w, target_h))
+        print(regression_target)
         return regression_target
 
     def compute_iou(self, anchors, box):
