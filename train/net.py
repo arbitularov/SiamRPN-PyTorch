@@ -26,6 +26,7 @@ class TrackerSiamRPN(Tracker):
 
         '''setup model'''
         self.net = SiameseAlexNet()
+        #self.net.init_weights()
 
         if net_path is not None:
             self.net.load_state_dict(torch.load(
@@ -40,13 +41,7 @@ class TrackerSiamRPN(Tracker):
             momentum     = config.momentum,
             weight_decay = config.weight_decay)
 
-        self.anchors     = util.generate_anchors(   config.anchor_total_stride,
-                                                    config.anchor_base_size,
-                                                    config.anchor_scales,
-                                                    config.anchor_ratios,
-                                                    config.anchor_valid_scope)
-
-    def step(self, epoch, dataset,i = 0,  train=True):
+    def step(self, epoch, dataset, anchors, i = 0,  train=True):
 
         if train:
             self.net.train()
@@ -54,6 +49,7 @@ class TrackerSiamRPN(Tracker):
             self.net.eval()
 
         template, detection, regression_target, conf_target = dataset
+
         if self.cuda:
             template, detection = template.cuda(), detection.cuda()
             regression_target, conf_target = regression_target.cuda(), conf_target.cuda()
@@ -68,7 +64,7 @@ class TrackerSiamRPN(Tracker):
                                                 conf_target,
                                                 config.num_pos,
                                                 config.num_neg,
-                                                self.anchors,
+                                                anchors,
                                                 ohem_pos=config.ohem_pos,
                                                 ohem_neg=config.ohem_neg)
 
@@ -80,7 +76,7 @@ class TrackerSiamRPN(Tracker):
 
         loss = cls_loss + config.lamb * reg_loss
 
-        '''anchors_show = self.anchors
+        '''anchors_show = anchors
         exem_img = template[0].cpu().numpy().transpose(1, 2, 0)  # (127, 127, 3)
         #cv2.imwrite('exem_img.png', exem_img)
 
@@ -99,7 +95,9 @@ class TrackerSiamRPN(Tracker):
 
         cls_pred = conf_target[0]
         gt_box = util.get_topk_box(cls_pred, regression_target[0], anchors_show)
-        img_box = util.add_box_img(img_box, gt_box, color=(255, 0, 0), x = 0.16, y = 0.16)
+        #print('gt_box', gt_box)
+        img_box = util.add_box_img(img_box, gt_box, color=(255, 0, 0), x = 1, y = 1)
+        #print('gt_box', gt_box)
         cv2.imwrite('pred_inst_gt.png', img_box)'''
 
         if train:

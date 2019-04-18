@@ -120,10 +120,10 @@ class TrainDataLoader(Dataset):
 
         img_mean_d = tuple(map(int, detection_img.mean(axis=(0, 1))))
 
-        a_x_ = np.random.choice(range(-75,75))
+        a_x_ = np.random.choice(range(-12,12))
         a_x = a_x_ * s_x
 
-        b_y_ = np.random.choice(range(-75,75))
+        b_y_ = np.random.choice(range(-12,12))
         b_y = b_y_ * s_x
 
 
@@ -156,10 +156,11 @@ class TrainDataLoader(Dataset):
         cx = cx_o + np.random.randint(- config.max_translate, config.max_translate + 1)
         gt_cx = cx_o - cx
         gt_cy = cy_o - cy'''
-        #print('[a_x_, b_y_, w, h]', [int(a_x_*0.16), int(b_y_*0.16), w, h])
+        #print('[a_x_, b_y_, w, h]', [int(a_x_), int(b_y_), w, h])
 
         self.ret['instance_img'] = instance_img
-        self.ret['cx, cy, w, h'] = [int(a_x_*0.16), int(b_y_*0.16), w, h]
+        #self.ret['cx, cy, w, h'] = [int(a_x_*0.16), int(b_y_*0.16), w, h]
+        self.ret['cx, cy, w, h'] = [int(a_x_), int(b_y_), w, h]
 
 
     def get_exemplar_image(self, img, bbox, size_z, context_amount, img_mean=None):
@@ -245,8 +246,7 @@ class TrainDataLoader(Dataset):
     def _target(self):
 
         regression_target, conf_target = self.compute_target(self.anchors,
-                                                             np.array(list(map(round,
-                                                             self.ret['cx, cy, w, h']))))
+                                                             np.array(list(map(round, self.ret['cx, cy, w, h']))))
 
 
         return regression_target, conf_target
@@ -353,9 +353,9 @@ class TrainDataLoader(Dataset):
             ToTensor()
         ])
 
-        self.ret['train_x_transforms'] = train_x_transforms(self.ret['instance_img'])
+        self.ret['train_x_transforms'] = train_x_transforms(self.ret['instance_img'].copy())
 
-        self.ret['train_z_transforms'] = train_z_transforms(self.ret['exemplar_img'])
+        self.ret['train_z_transforms'] = train_z_transforms(self.ret['exemplar_img'].copy())
 
 
 

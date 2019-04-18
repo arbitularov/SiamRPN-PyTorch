@@ -34,10 +34,9 @@ def main():
 
     '''model on gpu'''
     model = TrackerSiamRPN()
-    model.net.init_weights()
 
     '''setup train data loader'''
-    name = 'VID'
+    name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
@@ -54,10 +53,11 @@ def main():
     print('seq_dataset', len(seq_dataset))
 
     train_data  = TrainDataLoader(seq_dataset, name)
+    anchors = train_data.anchors
     train_loader = DataLoader(  dataset    = train_data,
-                                batch_size = 64,
+                                batch_size = 2,
                                 shuffle    = True,
-                                num_workers= 16,
+                                num_workers= 1,
                                 pin_memory = True)
 
     '''setup val data loader'''
@@ -79,9 +79,9 @@ def main():
 
     val_data  = TrainDataLoader(seq_dataset_val, name)
     val_loader = DataLoader(  dataset    = val_data,
-                                batch_size = 8,
+                                batch_size = 2,
                                 shuffle    = False,
-                                num_workers= 16,
+                                num_workers= 1,
                                 pin_memory = True)
 
     '''load weights'''
@@ -93,6 +93,7 @@ def main():
             model.net.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu')['model'])
         else:
             model.net.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu'))
+        torch.cuda.empty_cache()
         #model.net.load_state_dict(torch.load(args.checkpoint_path, map_location=lambda storage, loc: storage))
         print('You are loading the model.load_state_dict')
 
@@ -105,8 +106,7 @@ def main():
         model_dict = model.net.state_dict()
         model_dict.update(checkpoint)
         model.net.load_state_dict(model_dict)
-
-    torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
     '''train phase'''
     train_closses, train_rlosses, train_tlosses = AverageMeter(), AverageMeter(), AverageMeter()
@@ -123,7 +123,7 @@ def main():
         with tqdm(total=config.train_epoch_size) as progbar:
             for i, dataset in enumerate(train_loader):
 
-                closs, rloss, loss = model.step(epoch, dataset,i,  train=True)
+                closs, rloss, loss = model.step(epoch, dataset,anchors, i,  train=True)
 
                 closs_ = closs.cpu().item()
 
@@ -159,7 +159,7 @@ def main():
             print('Val epoch {}/{}'.format(epoch+1, config.epoches))
             for i, dataset in enumerate(val_loader):
 
-                val_closs, val_rloss, val_tloss = model.step(epoch, dataset, train=False)
+                val_closs, val_rloss, val_tloss = model.step(epoch, dataset, anchors, train=False)
 
                 closs_ = val_closs.cpu().item()
 

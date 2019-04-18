@@ -3,6 +3,7 @@ import random
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from util import util
 
 def rpn_cross_entropy_old(input, target):
     r"""
@@ -95,7 +96,7 @@ def rpn_cross_entropy_balance(input, target, num_pos, num_neg, anchors, ohem_pos
             if len(pos_index) > 0:
                 pos_loss_bid = F.cross_entropy(input=input[batch_id][pos_index],
                                                target=target[batch_id][pos_index], reduction='none')
-                selected_pos_index = nms(anchors[pos_index], pos_loss_bid.cpu().detach().numpy(), min_pos)
+                selected_pos_index = util.nms(anchors[pos_index], pos_loss_bid.cpu().detach().numpy(), min_pos)
                 pos_loss_bid_final = pos_loss_bid[selected_pos_index]
             else:
                 if cuda:
@@ -118,12 +119,12 @@ def rpn_cross_entropy_balance(input, target, num_pos, num_neg, anchors, ohem_pos
             if len(pos_index) > 0:
                 neg_loss_bid = F.cross_entropy(input=input[batch_id][neg_index],
                                                target=target[batch_id][neg_index], reduction='none')
-                selected_neg_index = nms(anchors[neg_index], neg_loss_bid.cpu().detach().numpy(), min_neg)
+                selected_neg_index = util.nms(anchors[neg_index], neg_loss_bid.cpu().detach().numpy(), min_neg)
                 neg_loss_bid_final = neg_loss_bid[selected_neg_index]
             else:
                 neg_loss_bid = F.cross_entropy(input=input[batch_id][neg_index],
                                                target=target[batch_id][neg_index], reduction='none')
-                selected_neg_index = nms(anchors[neg_index], neg_loss_bid.cpu().detach().numpy(), num_neg)
+                selected_neg_index = util.nms(anchors[neg_index], neg_loss_bid.cpu().detach().numpy(), num_neg)
                 neg_loss_bid_final = neg_loss_bid[selected_neg_index]
         else:
             if len(pos_index) > 0:

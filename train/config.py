@@ -6,11 +6,11 @@ class Config(object):
     template_img_size  = 127
     detection_img_size = 255
     epoches = 200
-    train_epoch_size = 5000
+    train_epoch_size = 100
     val_epoch_size = 100
 
-    start_lr = 3e-5 #3e-2
-    end_lr = 1e-6 # 1e-5
+    start_lr = 3e-2
+    end_lr = 1e-5
     warm_lr = 1e-3
     warm_scale = warm_lr/start_lr
     epoch = 50
@@ -18,11 +18,11 @@ class Config(object):
     momentum = 0.9
     weight_decay = 0.0005
 
-    clip = 1                           # grad clip
+    clip = 0.1                           # grad clip
 
     anchor_scales = np.array([8, ])
     anchor_ratios = np.array([0.33, 0.5, 1, 2, 3])
-    anchor_num    = len(anchor_scales) * len(anchor_ratios)
+    anchor_num    = len(anchor_scales) * len(anchor_ratios) # 5
     score_size = int((detection_img_size - template_img_size) / 8 + 1)
     size = anchor_num * score_size * score_size
 
@@ -41,7 +41,7 @@ class Config(object):
 
     valid_scope = int((detection_img_size - template_img_size) / total_stride / 2)
     anchor_valid_scope = 2 * valid_scope + 1
-    pos_threshold = 0.7
+    pos_threshold = 0.6
     neg_threshold = 0.3
 
     context = 0.5
@@ -57,7 +57,7 @@ class Config(object):
     '''config for net.py'''
     num_pos = 16
     num_neg = 48
-    lamb    = 100
+    lamb    = 5
 
     ohem_pos = False
     ohem_neg = False

@@ -128,6 +128,23 @@ class Util(object):
         for param_group in optimizer.param_groups:
             param_group['lr'] = decay * param_group['lr']
 
+    def nms(self, bboxes, scores, num, threshold=0.7):
+        print('scores',  scores)
+        sort_index = np.argsort(scores)[::-1]
+        print('sort_index', sort_index)
+        sort_boxes = bboxes[sort_index]
+        selected_bbox = [sort_boxes[0]]
+        selected_index = [sort_index[0]]
+        for i, bbox in enumerate(sort_boxes):
+            iou = compute_iou(selected_bbox, bbox)
+            print(iou, bbox, selected_bbox)
+            if np.max(iou) < threshold:
+                selected_bbox.append(bbox)
+                selected_index.append(sort_index[i])
+                if len(selected_bbox) >= num:
+                    break
+        return selected_index
+
 util = Util()
 
 class AverageMeter(object):
