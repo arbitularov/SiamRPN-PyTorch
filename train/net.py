@@ -80,7 +80,7 @@ class TrackerSiamRPN(Tracker):
 
         loss = cls_loss + config.lamb * reg_loss
 
-        anchors_show = self.anchors
+        '''anchors_show = self.anchors
         exem_img = template[0].cpu().numpy().transpose(1, 2, 0)  # (127, 127, 3)
         #cv2.imwrite('exem_img.png', exem_img)
 
@@ -100,12 +100,12 @@ class TrackerSiamRPN(Tracker):
         cls_pred = conf_target[0]
         gt_box = util.get_topk_box(cls_pred, regression_target[0], anchors_show)
         img_box = util.add_box_img(img_box, gt_box, color=(255, 0, 0), x = 0.16, y = 0.16)
-        cv2.imwrite('pred_inst_gt.png', img_box)
+        cv2.imwrite('pred_inst_gt.png', img_box)'''
 
         if train:
             self.optimizer.zero_grad()
             loss.backward()
-            #torch.nn.utils.clip_grad_norm_(self.net.parameters(), config.clip)
+            torch.nn.utils.clip_grad_norm_(self.net.parameters(), config.clip)
             self.optimizer.step()
 
             if i >= config.train_epoch_size - 1:

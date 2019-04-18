@@ -46,16 +46,17 @@ if __name__ == '__main__':
         e.run(tracker, visualize=True)
         e.report([tracker.name])
     '''
+    '''
 
     experiments = ExperimentGOT10k(args.tracker_path, subset='val',
                     result_dir='experiments/{}/results'.format(args.experiment_name),
                     report_dir='experiments/{}/reports'.format(args.experiment_name))
 
     '''
-    experiments = ExperimentOTB('/Users/arbi/Desktop/test-RPN/test/data/OTB', version=2015,
+    experiments = ExperimentOTB('/home/arbi/desktop/data', version=2015,
                     result_dir='experiments/{}/OTBresults'.format(args.experiment_name),
                     report_dir='experiments/{}/OTBreports'.format(args.experiment_name))
-    '''
+
 
     '''run experiments'''
     experiments.run(tracker, visualize = args.visualize)

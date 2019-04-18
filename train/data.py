@@ -141,8 +141,8 @@ class TrainDataLoader(Dataset):
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
 
-        frame_d = cv2.rectangle(instance_img, (int(x1+(a_x*scale_x)),int(y1+(b_y*scale_x))), (int(x2+(a_x*scale_x)),int(y2+(b_y*scale_x))), (0, 255, 0), 1)
-        cv2.imwrite('detection_img_ori.png',frame_d)
+        #frame_d = cv2.rectangle(instance_img, (int(x1+(a_x*scale_x)),int(y1+(b_y*scale_x))), (int(x2+(a_x*scale_x)),int(y2+(b_y*scale_x))), (0, 255, 0), 1)
+        #cv2.imwrite('detection_img_ori.png',frame_d)
 
         w  = x2 - x1
         h  = y2 - y1
@@ -266,30 +266,7 @@ class TrainDataLoader(Dataset):
         label[neg_index] = 0
         #print('label[neg_index]', len(label[neg_index]))
         #max_index = np.argsort(iou.flatten())[-20:]
-        boxes = anchors[pos_index]
-        f = open('text.txt', 'w')
 
-        for box in boxes:
-            f.write('{}\n'.format(box))
-
-            '''cx , cy, w, h = box
-            cx_big = (cx/0.16) + 255/2
-            cy_big = (cy/0.16) + 255/2
-
-            x1 = cx_big - w/2
-            x2 = cx_big + w/2
-
-            y1 = cy_big - h/2
-            y2 = cy_big + h/2
-
-            frame_d = cv2.rectangle(self.ret['instance_img'], (x1,y1), (x2,y2), (0, 255, 0), 2)'''
-
-        f.close()
-        cv2.imwrite('detection_img.png',self.ret['instance_img'])
-        #os.exit()
-
-        #print('box', box)
-        #print('boxes', boxes)
 
         return regression_target, label
 
