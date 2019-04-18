@@ -12,7 +12,7 @@ parser.add_argument('--experiment_name', default='default', metavar='DIR',help='
 parser.add_argument('--net_path', default='../train/experiments/default/model/model_e1.pth', metavar='DIR',help='path to weight')
 # ../train/experiments/default/model/model_e1.pth # ../model.pth #../siamrpn_7.pth
 # /Users/arbi/Desktop # /home/arbi/desktop/GOT-10k
-parser.add_argument('--visualize', default=True, help='visualize')
+parser.add_argument('--visualize', default=False, help='visualize')
 
 args = parser.parse_args()
 
