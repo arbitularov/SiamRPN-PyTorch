@@ -3,7 +3,7 @@ test/__pycache__
 __pycache__
 test/results
 tracking/results
-model_e1.pth
+model
 model_e2.pth
 model_e3.pth
 model_e4.pth
@@ -13,9 +13,12 @@ OTBreports
 OTBresults
 results
 siamrpn_7.pth
+siamrpn_50.pth
 siamrpn_25.pth
 model_e6.pth
 model_e9.pth
+model_e11.pth
+model_e12.pth
 model_e10.pth
 model_e25.pth
 model_e74.pth

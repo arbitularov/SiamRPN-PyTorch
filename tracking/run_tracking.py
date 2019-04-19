@@ -12,7 +12,7 @@ parser.add_argument('--experiment_name', default='default', metavar='DIR',help='
 parser.add_argument('--net_path', default='../train/experiments/default/model/model_e1.pth', metavar='DIR',help='path to weight')
 # ../train/experiments/default/model/model_e1.pth # ../model.pth #../siamrpn_7.pth
 # /Users/arbi/Desktop # /home/arbi/desktop/GOT-10k
-parser.add_argument('--visualize', default=False, help='visualize')
+parser.add_argument('--visualize', default=True, help='visualize')
 
 args = parser.parse_args()
 
@@ -46,7 +46,7 @@ if __name__ == '__main__':
         e.run(tracker, visualize=True)
         e.report([tracker.name])
     '''
-
+    '''
 
     experiments = ExperimentGOT10k(args.tracker_path, subset='val',
                     result_dir='experiments/{}/results'.format(args.experiment_name),
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     experiments = ExperimentOTB('/home/arbi/desktop/data', version=2015,
                     result_dir='experiments/{}/OTBresults'.format(args.experiment_name),
                     report_dir='experiments/{}/OTBreports'.format(args.experiment_name))
-    '''
+
 
     '''run experiments'''
     experiments.run(tracker, visualize = args.visualize)

@@ -55,9 +55,9 @@ def main():
     train_data  = TrainDataLoader(seq_dataset, name)
     anchors = train_data.anchors
     train_loader = DataLoader(  dataset    = train_data,
-                                batch_size = 2,
+                                batch_size = 64,
                                 shuffle    = True,
-                                num_workers= 1,
+                                num_workers= 16,
                                 pin_memory = True)
 
     '''setup val data loader'''
@@ -79,9 +79,9 @@ def main():
 
     val_data  = TrainDataLoader(seq_dataset_val, name)
     val_loader = DataLoader(  dataset    = val_data,
-                                batch_size = 2,
+                                batch_size = 8,
                                 shuffle    = False,
-                                num_workers= 1,
+                                num_workers= 16,
                                 pin_memory = True)
 
     '''load weights'''
