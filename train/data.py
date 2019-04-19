@@ -123,7 +123,7 @@ class TrainDataLoader(Dataset):
         a_x_ = np.random.choice(range(-12,12))
         a_x = a_x_ * s_x
 
-        b_y_ = np.random.choice(range(-12,12))
+        b_y_ = np.random.choice(range(-16,16))
         b_y = b_y_ * s_x
 
 

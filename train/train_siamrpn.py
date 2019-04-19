@@ -21,10 +21,10 @@ torch.manual_seed(1234) # config.seed
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/home/arbi/desktop/ILSVRC', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--checkpoint_path', default=None, help='resume')
-# /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop
+# /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop # /home/arbi/desktop/ILSVRC
 # 'experiments/default/model/model_e1.pth'
 def main():
 
@@ -36,16 +36,16 @@ def main():
     model = TrackerSiamRPN()
 
     '''setup train data loader'''
-    name = 'GOT-10k'
+    name = 'VID'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
         seq_dataset = GOT10k(root_dir, subset='val')
     elif name == 'VID':
-        root_dir = '/home/arbi/desktop/ILSVRC2017_VID'
+        root_dir = '/home/arbi/desktop/ILSVRC'
         seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
     elif name == 'All':
-        root_dir_vid = '/home/arbi/desktop/ILSVRC2017_VID'
+        root_dir_vid = '/home/arbi/desktop/ILSVRC'
         seq_datasetVID = ImageNetVID(root_dir_vid, subset=('train'))
         root_dir_got = args.train_path
         seq_datasetGOT = GOT10k(root_dir_got, subset='train')
@@ -61,16 +61,16 @@ def main():
                                 pin_memory = True)
 
     '''setup val data loader'''
-    name = 'GOT-10k'
+    name = 'VID'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
         seq_dataset_val = GOT10k(root_dir, subset='val')
     elif name == 'VID':
-        root_dir = '/home/arbi/desktop/ILSVRC2017_VID'
+        root_dir = '/home/arbi/desktop/ILSVRC'
         seq_dataset_val = ImageNetVID(root_dir, subset=('val'))
     elif name == 'All':
-        root_dir_vid = '/home/arbi/desktop/ILSVRC2017_VID/ILSVRC'
+        root_dir_vid = '/home/arbi/desktop/ILSVRC'
         seq_datasetVID = ImageNetVID(root_dir_vid, subset=('val'))
         root_dir_got = args.train_path
         seq_datasetGOT = GOT10k(root_dir_got, subset='val')
