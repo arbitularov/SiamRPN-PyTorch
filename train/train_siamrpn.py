@@ -15,6 +15,9 @@ from data import TrainDataLoader
 from torch.utils.data import DataLoader
 from util import util, AverageMeter, SavePlot
 from got10k.datasets import ImageNetVID, GOT10k
+from torchvision import datasets, transforms, utils
+from custom_transforms import Normalize, ToTensor, RandomStretch, \
+    RandomCrop, CenterCrop, RandomBlur, ColorAug
 
 torch.manual_seed(1234) # config.seed
 
@@ -43,7 +46,7 @@ def main():
         seq_dataset = GOT10k(root_dir, subset='val')
     elif name == 'VID':
         root_dir = '/home/arbi/desktop/ILSVRC'
-        seq_dataset = ImageNetVID(root_dir, subset=('train', 'val'))
+        seq_dataset = ImageNetVID(root_dir, subset=('train'))
     elif name == 'All':
         root_dir_vid = '/home/arbi/desktop/ILSVRC'
         seq_datasetVID = ImageNetVID(root_dir_vid, subset=('train'))
@@ -52,7 +55,14 @@ def main():
         seq_dataset = util.data_split(seq_datasetVID, seq_datasetGOT)
     print('seq_dataset', len(seq_dataset))
 
-    train_data  = TrainDataLoader(seq_dataset, name)
+    train_z_transforms = transforms.Compose([
+        ToTensor()
+    ])
+    train_x_transforms = transforms.Compose([
+        ToTensor()
+    ])
+
+    train_data  = TrainDataLoader(seq_dataset, train_z_transforms, train_x_transforms, name)
     anchors = train_data.anchors
     train_loader = DataLoader(  dataset    = train_data,
                                 batch_size = 64,
@@ -77,8 +87,15 @@ def main():
         seq_dataset_val = util.data_split(seq_datasetVID, seq_datasetGOT)
     print('seq_dataset_val', len(seq_dataset_val))
 
-    val_data  = TrainDataLoader(seq_dataset_val, name)
-    val_loader = DataLoader(  dataset    = val_data,
+    valid_z_transforms = transforms.Compose([
+        ToTensor()
+    ])
+    valid_x_transforms = transforms.Compose([
+        ToTensor()
+    ])
+
+    val_data  = TrainDataLoader(seq_dataset_val, valid_z_transforms, valid_x_transforms, name)
+    val_loader = DataLoader(    dataset    = val_data,
                                 batch_size = 8,
                                 shuffle    = False,
                                 num_workers= 16,
@@ -116,8 +133,8 @@ def main():
 
     for epoch in range(config.epoches):
         model.net.train()
-        if config.fix_former_3_layers:
-                util.freeze_layers(model.net)
+        '''if config.fix_former_3_layers:
+                util.freeze_layers(model.net)'''
         print('Train epoch {}/{}'.format(epoch+1, config.epoches))
         train_loss = []
         with tqdm(total=config.train_epoch_size) as progbar:
@@ -135,7 +152,7 @@ def main():
                 train_tlosses.update(loss.cpu().item())
 
                 progbar.set_postfix(closs='{:05.3f}'.format(train_closses.avg),
-                                    rloss='{:05.3f}'.format(train_rlosses.avg),
+                                    rloss='{:05.5f}'.format(train_rlosses.avg),
                                     tloss='{:05.3f}'.format(train_tlosses.avg))
 
                 progbar.update()

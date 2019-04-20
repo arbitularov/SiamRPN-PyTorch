@@ -4,13 +4,13 @@ class Config(object):
 
     '''config for train_siamrpn.py'''
     template_img_size  = 127
-    detection_img_size = 255
+    detection_img_size = 271
     epoches = 200
-    train_epoch_size = 1000
-    val_epoch_size = 100
+    train_epoch_size = 100
+    val_epoch_size = 10
 
-    start_lr = 3e-6
-    end_lr = 1e-7
+    start_lr = 3e-5
+    end_lr = 1e-6
     warm_lr = 1e-3
     warm_scale = warm_lr/start_lr
     epoch = 50

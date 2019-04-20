@@ -18,9 +18,11 @@ from custom_transforms import Normalize, ToTensor, RandomStretch, \
     RandomCrop, CenterCrop, RandomBlur, ColorAug
 
 class TrainDataLoader(Dataset):
-    def __init__(self, seq_dataset, name = 'GOT-10k'):
+    def __init__(self, seq_dataset, z_transforms, x_transforms, name = 'GOT-10k'):
 
         self.max_inter        = config.max_inter
+        self.z_transforms     = z_transforms
+        self.x_transforms     = x_transforms
         self.sub_class_dir    = seq_dataset
         self.ret              = {}
         self.count            = 0
@@ -45,7 +47,7 @@ class TrainDataLoader(Dataset):
         video_name = self.sub_class_dir[index_of_subclass][0]
 
         video_num  = len(video_name)
-        video_gt = self.sub_class_dir[index_of_subclass][1]
+        video_gt   = self.sub_class_dir[index_of_subclass][1]
         #print('video_num', video_num)
 
         status = True
@@ -85,6 +87,16 @@ class TrainDataLoader(Dataset):
         #template_img = cv2.imread(self.ret['template_img_path'])
         template_img = Image.open(self.ret['template_img_path'])
         template_img = np.array(template_img)
+
+        detection_img = Image.open(self.ret['detection_img_path'])
+        detection_img = np.array(detection_img)
+
+        if np.random.rand(1) < config.gray_ratio:
+
+            template_img = cv2.cvtColor(template_img, cv2.COLOR_RGB2GRAY)
+            template_img = cv2.cvtColor(template_img, cv2.COLOR_GRAY2RGB)
+            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_RGB2GRAY)
+            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_GRAY2RGB)
         #print('template_img_path', self.ret['template_img_path'])
 
         img_mean = np.mean(template_img, axis=(0, 1))
@@ -106,8 +118,7 @@ class TrainDataLoader(Dataset):
 
         '''detection'''
         #detection_img = cv2.imread(self.ret['detection_img_path'])
-        detection_img = Image.open(self.ret['detection_img_path'])
-        detection_img = np.array(detection_img)
+
         d = self.ret['detection_target_xywh']
 
         cx, cy, w, h = d  # float type
@@ -120,10 +131,10 @@ class TrainDataLoader(Dataset):
 
         img_mean_d = tuple(map(int, detection_img.mean(axis=(0, 1))))
 
-        a_x_ = np.random.choice(range(-12,12))
+        a_x_ = np.random.choice(range(-64,64))
         a_x = a_x_ * s_x
 
-        b_y_ = np.random.choice(range(-16,16))
+        b_y_ = np.random.choice(range(-64,64))
         b_y = b_y_ * s_x
 
 
@@ -149,14 +160,7 @@ class TrainDataLoader(Dataset):
         cx = x1 + w/2
         cy = y1 + h/2
 
-        '''im_h, im_w, _ = instance_img.shape
-        cy_o = (im_h - 1) / 2
-        cx_o = (im_w - 1) / 2
-        cy = cy_o + np.random.randint(- config.max_translate, config.max_translate + 1)
-        cx = cx_o + np.random.randint(- config.max_translate, config.max_translate + 1)
-        gt_cx = cx_o - cx
-        gt_cy = cy_o - cy'''
-        #print('[a_x_, b_y_, w, h]', [int(a_x_), int(b_y_), w, h])
+         #print('[a_x_, b_y_, w, h]', [int(a_x_), int(b_y_), w, h])
 
         self.ret['instance_img'] = instance_img
         #self.ret['cx, cy, w, h'] = [int(a_x_*0.16), int(b_y_*0.16), w, h]
@@ -346,16 +350,9 @@ class TrainDataLoader(Dataset):
 
     def _tranform(self):
 
-        train_z_transforms = transforms.Compose([
-            ToTensor()
-        ])
-        train_x_transforms = transforms.Compose([
-            ToTensor()
-        ])
+        self.ret['train_x_transforms'] = self.x_transforms(self.ret['instance_img'])
 
-        self.ret['train_x_transforms'] = train_x_transforms(self.ret['instance_img'].copy())
-
-        self.ret['train_z_transforms'] = train_z_transforms(self.ret['exemplar_img'].copy())
+        self.ret['train_z_transforms'] = self.z_transforms(self.ret['exemplar_img'])
 
 
 

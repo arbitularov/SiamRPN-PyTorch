@@ -45,8 +45,8 @@ class SiameseAlexNet(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 #nn.init.kaiming_normal_(m.weight.data, mode='fan_out', nonlinearity='relu')
-                nn.init.normal_(m.weight.data, std=0.0005)
-                nn.init.normal_(m.bias.data, std=0.0005)
+                nn.init.normal_(m.weight.data, std= 0.0005)
+                nn.init.normal_(m.bias.data, std= 0.0005) # 0.0005
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
