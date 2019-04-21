@@ -7,7 +7,7 @@ import json
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Tracking')
 
-parser.add_argument('--tracker_path', default='/home/arbi/desktop/GOT-10k', metavar='DIR',help='path to dataset')
+parser.add_argument('--tracker_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--net_path', default='../train/experiments/default/model/model_e1.pth', metavar='DIR',help='path to weight')
 # ../train/experiments/default/model/model_e1.pth # ../model.pth #../siamrpn_7.pth
@@ -46,7 +46,7 @@ if __name__ == '__main__':
         e.run(tracker, visualize=True)
         e.report([tracker.name])
     '''
-    '''
+    
 
     experiments = ExperimentGOT10k(args.tracker_path, subset='val',
                     result_dir='experiments/{}/results'.format(args.experiment_name),
@@ -57,7 +57,7 @@ if __name__ == '__main__':
                     result_dir='experiments/{}/OTBresults'.format(args.experiment_name),
                     report_dir='experiments/{}/OTBreports'.format(args.experiment_name))
 
-
+    '''
     '''run experiments'''
     experiments.run(tracker, visualize = args.visualize)
     experiments.report([tracker.name])

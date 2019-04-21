@@ -24,7 +24,7 @@ torch.manual_seed(1234) # config.seed
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/home/arbi/desktop/ILSVRC', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/Users/arbi/Desktop', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--checkpoint_path', default=None, help='resume')
 # /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop # /home/arbi/desktop/ILSVRC
@@ -39,7 +39,7 @@ def main():
     model = TrackerSiamRPN()
 
     '''setup train data loader'''
-    name = 'VID'
+    name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
@@ -65,13 +65,13 @@ def main():
     train_data  = TrainDataLoader(seq_dataset, train_z_transforms, train_x_transforms, name)
     anchors = train_data.anchors
     train_loader = DataLoader(  dataset    = train_data,
-                                batch_size = 64,
+                                batch_size = 1,
                                 shuffle    = True,
-                                num_workers= 16,
+                                num_workers= 1,
                                 pin_memory = True)
 
     '''setup val data loader'''
-    name = 'VID'
+    name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
@@ -96,9 +96,9 @@ def main():
 
     val_data  = TrainDataLoader(seq_dataset_val, valid_z_transforms, valid_x_transforms, name)
     val_loader = DataLoader(    dataset    = val_data,
-                                batch_size = 8,
+                                batch_size = 1,
                                 shuffle    = False,
-                                num_workers= 16,
+                                num_workers= 1,
                                 pin_memory = True)
 
     '''load weights'''
@@ -111,12 +111,9 @@ def main():
         else:
             model.net.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu'))
         torch.cuda.empty_cache()
-        #model.net.load_state_dict(torch.load(args.checkpoint_path, map_location=lambda storage, loc: storage))
         print('You are loading the model.load_state_dict')
 
     elif config.pretrained_model:
-        #print("init with pretrained checkpoint %s" % config.pretrained_model + '\n')
-        #print('------------------------------------------------------------------------------------------------ \n')
         checkpoint = torch.load(config.pretrained_model)
         # change name and load parameters
         checkpoint = {k.replace('features.features', 'featureExtract'): v for k, v in checkpoint.items()}
@@ -133,8 +130,8 @@ def main():
 
     for epoch in range(config.epoches):
         model.net.train()
-        '''if config.fix_former_3_layers:
-                util.freeze_layers(model.net)'''
+        if config.fix_former_3_layers:
+                util.freeze_layers(model.net)
         print('Train epoch {}/{}'.format(epoch+1, config.epoches))
         train_loss = []
         with tqdm(total=config.train_epoch_size) as progbar:
@@ -157,11 +154,8 @@ def main():
 
                 progbar.update()
                 train_loss.append(train_tlosses.avg)
-                #print('i', i, 'config.train_epoch_size - 1', config.train_epoch_size - 1)
 
                 if i >= config.train_epoch_size - 1:
-                    '''save plot'''
-                    #train_val_plot.update(train_tlosses.avg, train_label = 'total loss')
 
                     '''save model'''
                     model.save(model, exp_name_dir, epoch)

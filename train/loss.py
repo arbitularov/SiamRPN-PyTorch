@@ -6,11 +6,6 @@ import torch.nn.functional as F
 from util import util
 
 def rpn_cross_entropy_old(input, target):
-    r"""
-    :param input: (15x15x5,2)
-    :param target: (15x15x5,)
-    :return:
-    """
     mask_ignore = target == -1
     mask_calcu = 1 - mask_ignore
     loss = F.cross_entropy(input=input[mask_calcu], target=target[mask_calcu])
@@ -18,11 +13,6 @@ def rpn_cross_entropy_old(input, target):
 
 
 def rpn_cross_entropy_balance_old(input, target, num_pos, num_neg):
-    r"""
-    :param input: (N,1125,2)
-    :param target: (15x15x5,)
-    :return:
-    """
     cal_index_pos = np.array([], dtype=np.int64)
     cal_index_neg = np.array([], dtype=np.int64)
     for batch_id in range(target.shape[0]):
@@ -39,54 +29,15 @@ def rpn_cross_entropy_balance_old(input, target, num_pos, num_neg):
     # loss = F.cross_entropy(input=input.reshape(-1, 2)[cal_index], target=target.flatten()[cal_index])
     return loss
 
-
-# def rpn_cross_entropy_balance(input, target, num_pos, num_neg):
-#     r"""
-#     :param input: (N,1125,2)
-#     :param target: (15x15x5,)
-#     :return:
-#     """
-#     pos_index = np.random.choice(np.where(target.cpu().flatten() == 1)[0], target.shape[0] * num_pos)
-#     neg_index = np.random.choice(np.where(target.cpu().flatten() == 0)[0], target.shape[0] * num_neg)
-#     cal_index = np.append(neg_index, pos_index)
-#
-#     loss = F.cross_entropy(input=input.reshape(-1, 2)[cal_index], target=target.flatten()[cal_index])
-#     return loss
-
-
 def rpn_smoothL1_old(input, target, label):
-    r'''
-    :param input: torch.Size([1, 1125, 4])
-    :param target: torch.Size([1, 1125, 4])
-            label: (torch.Size([1, 1125]) pos neg or ignore
-    :return:
-    '''
     pos_index = np.where(label.cpu() == 1)
     loss = F.smooth_l1_loss(input[pos_index], target[pos_index])
     return loss
 
-
-
-
-
-
 def rpn_cross_entropy_balance(input, target, num_pos, num_neg, anchors, ohem_pos=None, ohem_neg=None):
-    r"""
-    :param input: (N,1125,2)
-    :param target: (15x15x5,)
-    :return:
-    """
-    # if ohem:
-    #     final_loss = rpn_cross_entropy_balance_parallel(input, target, num_pos, num_neg, anchors, ohem=True,
-    #                                                     num_threads=4)
-    # else:
-
-    #print('target', target.shape[0])
-    #print('target', target.shape[1])
     cuda = torch.cuda.is_available()
     loss_all = []
     for batch_id in range(target.shape[0]):
-        #print('batch_id', batch_id)
         min_pos = min(len(np.where(target[batch_id].cpu() == 1)[0]), num_pos)
         min_neg = int(min(len(np.where(target[batch_id].cpu() == 1)[0]) * num_neg / num_pos, num_neg))
         pos_index = np.where(target[batch_id].cpu() == 1)[0].tolist()
@@ -142,12 +93,6 @@ def rpn_cross_entropy_balance(input, target, num_pos, num_neg, anchors, ohem_pos
 
 
 def rpn_smoothL1(input, target, label, num_pos=16, ohem=None):
-
-    ''':param input: torch.Size([1, 1125, 4])
-    :param target: torch.Size([1, 1125, 4])
-            label: (torch.Size([1, 1125]) pos neg or ignore
-    :return:'''
-
     cuda = torch.cuda.is_available()
     loss_all = []
     for batch_id in range(target.shape[0]):

@@ -119,13 +119,6 @@ class TrackerSiamRPN(Tracker):
         net_path = os.path.join(model_save_dir_pth, 'model_e%d.pth' % (epoch + 1))
         torch.save(model.net.state_dict(), net_path)
 
-'''def adjust_learning_rate(lr, optimizer, epoch, gamma=0.1):
-    """Sets the learning rate to the initial LR decayed 0.9 every 50 epochs"""
-    lr = lr * (0.9 ** (epoch // 1))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return lr
-'''
 '''class SiamRPN(nn.Module):
 
     def __init__(self, anchor_num = 5):

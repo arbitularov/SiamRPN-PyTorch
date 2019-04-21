@@ -80,24 +80,18 @@ class Util(object):
                 count += 1
 
         anchor = np.tile(anchor, score_size * score_size).reshape((-1, 4))
-        # (5,4x225) to (225x5,4)
         ori = - (score_size // 2) * total_stride
         # the left displacement
         xx, yy = np.meshgrid([ori + total_stride * dx for dx in range(score_size)],
                              [ori + total_stride * dy for dy in range(score_size)])
-        #print(xx, yy)
 
-        # (15,15)
         xx, yy = np.tile(xx.flatten(), (anchor_num, 1)).flatten(), \
                  np.tile(yy.flatten(), (anchor_num, 1)).flatten()
-        # (15,15) to (225,1) to (5,225) to (225x5,1)
         anchor[:, 0], anchor[:, 1] = xx.astype(np.float32), yy.astype(np.float32)
-        #print(anchor, anchor.shape)
         return anchor
 
     # freeze layers
     def freeze_layers(self, model):
-        #print('------------------------------------------------------------------------------------------------')
         for layer in model.featureExtract[:10]:
             if isinstance(layer, nn.BatchNorm2d):
                 layer.eval()
@@ -112,8 +106,6 @@ class Util(object):
                 continue
             else:
                 raise KeyError('error in fixing former 3 layers')
-        #print("fixed layers:")
-        #print(model.featureExtract[:10])
 
     def experiment_name_dir(self, experiment_name):
         experiment_name_dir = 'experiments/{}'.format(experiment_name)
@@ -216,7 +208,7 @@ class SavePlot(object):
                         xlabel = self.xlabel,
                         show   = self.show,
                         train_label = train_label,
-                        val_label = val_label)
+                        val_label   = val_label)
 
     def plot(self,  exp_name_dir,
                     step,

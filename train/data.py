@@ -20,18 +20,18 @@ from custom_transforms import Normalize, ToTensor, RandomStretch, \
 class TrainDataLoader(Dataset):
     def __init__(self, seq_dataset, z_transforms, x_transforms, name = 'GOT-10k'):
 
-        self.max_inter        = config.max_inter
-        self.z_transforms     = z_transforms
-        self.x_transforms     = x_transforms
-        self.sub_class_dir    = seq_dataset
-        self.ret              = {}
-        self.count            = 0
-        self.name             = name
-        self.anchors          = util.generate_anchors(  config.anchor_total_stride,
-                                                        config.anchor_base_size,
-                                                        config.anchor_scales,
-                                                        config.anchor_ratios,
-                                                        config.score_size)
+        self.max_inter     = config.max_inter
+        self.z_transforms  = z_transforms
+        self.x_transforms  = x_transforms
+        self.sub_class_dir = seq_dataset
+        self.ret           = {}
+        self.count         = 0
+        self.name          = name
+        self.anchors       = util.generate_anchors( config.anchor_total_stride,
+                                                    config.anchor_base_size,
+                                                    config.anchor_scales,
+                                                    config.anchor_ratios,
+                                                    config.score_size)
 
     def get_transform_for_train(self):
         transform_list = []
@@ -48,7 +48,6 @@ class TrainDataLoader(Dataset):
 
         video_num  = len(video_name)
         video_gt   = self.sub_class_dir[index_of_subclass][1]
-        #print('video_num', video_num)
 
         status = True
         while status:
@@ -84,28 +83,27 @@ class TrainDataLoader(Dataset):
     def open(self):
 
         '''template'''
-        #template_img = cv2.imread(self.ret['template_img_path'])
+        #template_img = cv2.imread(self.ret['template_img_path']) if you use cv2.imread you can not open .JPEG format
         template_img = Image.open(self.ret['template_img_path'])
         template_img = np.array(template_img)
 
         detection_img = Image.open(self.ret['detection_img_path'])
         detection_img = np.array(detection_img)
 
-        if np.random.rand(1) < config.gray_ratio:
+        '''if np.random.rand(1) < config.gray_ratio:
 
             template_img = cv2.cvtColor(template_img, cv2.COLOR_RGB2GRAY)
             template_img = cv2.cvtColor(template_img, cv2.COLOR_GRAY2RGB)
             detection_img = cv2.cvtColor(detection_img, cv2.COLOR_RGB2GRAY)
-            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_GRAY2RGB)
-        #print('template_img_path', self.ret['template_img_path'])
+            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_GRAY2RGB)'''
 
         img_mean = np.mean(template_img, axis=(0, 1))
         #img_mean = tuple(map(int, template_img.mean(axis=(0, 1))))
 
-        exemplar_img, scale_z, s_z, w_x, h_x = self.get_exemplar_image(   template_img,
-                                                                self.ret['template_target_xywh'],
-                                                                config.template_img_size,
-                                                                config.context, img_mean )
+        exemplar_img, scale_z, s_z, w_x, h_x = self.get_exemplar_image( template_img,
+                                                                        self.ret['template_target_xywh'],
+                                                                        config.template_img_size,
+                                                                        config.context, img_mean )
 
         size_x = config.template_img_size
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
@@ -118,17 +116,14 @@ class TrainDataLoader(Dataset):
 
         '''detection'''
         #detection_img = cv2.imread(self.ret['detection_img_path'])
-
         d = self.ret['detection_target_xywh']
-
         cx, cy, w, h = d  # float type
 
         wc_z = w + 0.5 * (w + h)
         hc_z = h + 0.5 * (w + h)
         s_z = np.sqrt(wc_z * hc_z)
 
-        s_x = s_z / 135
-
+        s_x = s_z / (config.detection_img_size//2)
         img_mean_d = tuple(map(int, detection_img.mean(axis=(0, 1))))
 
         a_x_ = np.random.choice(range(-64,64))
@@ -137,17 +132,14 @@ class TrainDataLoader(Dataset):
         b_y_ = np.random.choice(range(-64,64))
         b_y = b_y_ * s_x
 
-
-
         instance_img, w_x, h_x, scale_x = self.get_instance_image(  detection_img, d,
-                                                                    config.template_img_size,
-                                                                    config.detection_img_size,
-                                                                    config.context,
+                                                                    config.template_img_size, # 127
+                                                                    config.detection_img_size,# 255
+                                                                    config.context,           # 0.5
                                                                     a_x, b_y,
                                                                     img_mean_d )
 
         size_x = config.detection_img_size
-
 
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
@@ -160,12 +152,11 @@ class TrainDataLoader(Dataset):
         cx = x1 + w/2
         cy = y1 + h/2
 
-         #print('[a_x_, b_y_, w, h]', [int(a_x_), int(b_y_), w, h])
+        #print('[a_x_, b_y_, w, h]', [int(a_x_), int(b_y_), w, h])
 
         self.ret['instance_img'] = instance_img
         #self.ret['cx, cy, w, h'] = [int(a_x_*0.16), int(b_y_*0.16), w, h]
         self.ret['cx, cy, w, h'] = [int(a_x_), int(b_y_), w, h]
-
 
     def get_exemplar_image(self, img, bbox, size_z, context_amount, img_mean=None):
         cx, cy, w, h = bbox
@@ -205,7 +196,6 @@ class TrainDataLoader(Dataset):
 
     def crop_and_pad(self, img, cx, cy, model_sz, original_sz, img_mean=None):
         im_h, im_w, _ = img.shape
-        #print('original_sz', original_sz)
 
         xmin = cx - (original_sz - 1) / 2
         xmax = xmin + original_sz - 1
@@ -237,7 +227,7 @@ class TrainDataLoader(Dataset):
         else:
             im_patch_original = img[int(ymin):int(ymax + 1), int(xmin):int(xmax + 1), :]
         if not np.array_equal(model_sz, original_sz):
-            #print('im_patch_original', im_patch_original.shape)
+
             im_patch = cv2.resize(im_patch_original, (model_sz, model_sz))  # zzp: use cv to get a better speed
         else:
             im_patch = im_patch_original
@@ -252,12 +242,10 @@ class TrainDataLoader(Dataset):
         regression_target, conf_target = self.compute_target(self.anchors,
                                                              np.array(list(map(round, self.ret['cx, cy, w, h']))))
 
-
         return regression_target, conf_target
 
     def compute_target(self, anchors, box):
         #box = [-(box[0]), -(box[1]), box[2], box[3]]
-        #print('box', box)
         regression_target = self.box_transform(anchors, box)
 
         iou = self.compute_iou(anchors, box).flatten()
@@ -266,11 +254,8 @@ class TrainDataLoader(Dataset):
         neg_index = np.where(iou < config.neg_threshold)[0]
         label = np.ones_like(iou) * -1
         label[pos_index] = 1
-        #print('label[pos_index]', len(label[pos_index]))
         label[neg_index] = 0
-        #print('label[neg_index]', len(label[neg_index]))
         #max_index = np.argsort(iou.flatten())[-20:]
-
 
         return regression_target, label
 
@@ -286,7 +271,6 @@ class TrainDataLoader(Dataset):
         target_w = np.log(gt_w / anchor_w)
         target_h = np.log(gt_h / anchor_h)
         regression_target = np.hstack((target_x, target_y, target_w, target_h))
-        #print(regression_target)
         return regression_target
 
     def compute_iou(self, anchors, box):
@@ -323,7 +307,6 @@ class TrainDataLoader(Dataset):
         return iou
 
     def compute_iou_old(self, anchors, box):
-        #print('anchors, box', anchors, box)
         gt_box = np.tile(box.reshape(1, -1), (anchors.shape[0], 1))
 
         anchor_x1 = anchors[:, :1] - anchors[:, 2:3] / 2 + 0.5
@@ -351,13 +334,9 @@ class TrainDataLoader(Dataset):
     def _tranform(self):
 
         self.ret['train_x_transforms'] = self.x_transforms(self.ret['instance_img'])
-
         self.ret['train_z_transforms'] = self.z_transforms(self.ret['exemplar_img'])
 
-
-
     def __getitem__(self, index):
-        #if index >= len(self.sub_class_dir):
         index = random.choice(range(len(self.sub_class_dir)))
         if self.name == 'GOT-10k':
             if index == 8627 or index == 8629 or index == 9057 or index == 9058:
@@ -365,14 +344,11 @@ class TrainDataLoader(Dataset):
 
         self._pick_img_pairs(index)
         self.open()
-        #self._pad_crop_resize()
-        #self._generate_pos_neg_diff()
         self._tranform()
         regression_target, conf_target = self._target()
         self.count += 1
 
         return self.ret['train_z_transforms'], self.ret['train_x_transforms'], regression_target, conf_target.astype(np.int64)
-
 
     def __len__(self):
         return config.train_epoch_size*64

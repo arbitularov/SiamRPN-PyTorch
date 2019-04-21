@@ -18,7 +18,7 @@ class Config(object):
     momentum = 0.9
     weight_decay = 0.0005
 
-    clip = 10                           # grad clip
+    clip = 10 # grad clip
 
     anchor_scales = np.array([8, ])
     anchor_ratios = np.array([0.33, 0.5, 1, 2, 3])
@@ -31,7 +31,7 @@ class Config(object):
     out_feature = 19
     max_inter   = 80
     fix_former_3_layers = True
-    pretrained_model = '/home/arbi/desktop/alexnet.pth' #'/home/arbi/Загрузки/alexnet.pth' # '/Users/arbi/Desktop/alexnet.pth'
+    pretrained_model = '/Users/arbi/Desktop/alexnet.pth' #'/home/arbi/desktop/alexnet.pth' #'/home/arbi/Загрузки/alexnet.pth'
 
     total_stride = 8
     anchor_total_stride = total_stride
