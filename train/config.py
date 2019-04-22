@@ -6,11 +6,11 @@ class Config(object):
     template_img_size  = 127
     detection_img_size = 271
     epoches = 200
-    train_epoch_size = 100
-    val_epoch_size = 10
+    train_epoch_size = 10000
+    val_epoch_size = 100
 
-    start_lr = 3e-5
-    end_lr = 1e-6
+    start_lr = 3e-4
+    end_lr = 1e-5
     warm_lr = 1e-3
     warm_scale = warm_lr/start_lr
     epoch = 50
@@ -56,7 +56,7 @@ class Config(object):
 
     '''config for net.py'''
     num_pos = 16
-    num_neg = 48
+    num_neg = 64
     lamb    = 5
 
     ohem_pos = False

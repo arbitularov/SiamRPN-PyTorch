@@ -3,7 +3,8 @@ test/__pycache__
 __pycache__
 test/results
 tracking/results
-#model_e1.pth
+model
+model_e1.pth
 model_e2.pth
 model_e3.pth
 model_e4.pth

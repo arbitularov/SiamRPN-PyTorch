@@ -132,7 +132,7 @@ class TrainDataLoader(Dataset):
         b_y_ = np.random.choice(range(-64,64))
         b_y = b_y_ * s_x
 
-        instance_img, w_x, h_x, scale_x = self.get_instance_image(  detection_img, d,
+        instance_img, w_x, h_x, scale_x, scale_h, scale_w = self.get_instance_image(  detection_img, d,
                                                                     config.template_img_size, # 127
                                                                     config.detection_img_size,# 255
                                                                     config.context,           # 0.5
@@ -166,7 +166,7 @@ class TrainDataLoader(Dataset):
         s_z = np.sqrt(wc_z * hc_z)
         scale_z = size_z / s_z
 
-        exemplar_img, scale_x = self.crop_and_pad(img, cx, cy, size_z, s_z, img_mean)
+        exemplar_img, scale_x = self.crop_and_pad_old(img, cx, cy, size_z, s_z, img_mean)
 
         w_x = w * scale_x
         h_x = h * scale_x
@@ -177,7 +177,7 @@ class TrainDataLoader(Dataset):
 
         cx, cy, w, h = bbox  # float type
 
-        cx, cy = cx - a_x , cy - b_y
+        #cx, cy = cx - a_x , cy - b_y
         wc_z = w + context_amount * (w + h)
         hc_z = h + context_amount * (w + h)
         s_z = np.sqrt(wc_z * hc_z) # the width of the crop box
@@ -185,16 +185,118 @@ class TrainDataLoader(Dataset):
         scale_z = size_z / s_z
 
         s_x = s_z * size_x / size_z
-        instance_img, scale_x = self.crop_and_pad(img, cx, cy, size_x, s_x, img_mean)
-        w_x = w * scale_x
-        h_x = h * scale_x
-        # point_1 = (size_x + 1) / 2 - w_x / 2, (size_x + 1) / 2 - h_x / 2
-        # point_2 = (size_x + 1) / 2 + w_x / 2, (size_x + 1) / 2 + h_x / 2
-        # frame = cv2.rectangle(instance_img, (int(point_1[0]),int(point_1[1])), (int(point_2[0]),int(point_2[1])), (0, 255, 0), 2)
-        # cv2.imwrite('1.jpg', frame)
-        return instance_img, w_x, h_x, scale_x
+        instance_img, gt_w, gt_h, scale_x, scale_h, scale_w = self.crop_and_pad(img, cx, cy, w, h, a_x, b_y,  size_x, s_x, img_mean)
+        w_x = gt_w #* scale_x #w * scale_x
+        h_x = gt_h #* scale_x #h * scale_x
 
-    def crop_and_pad(self, img, cx, cy, model_sz, original_sz, img_mean=None):
+        #cx, cy = cx/ scale_w *scale_x, cy/ scale_h *scale_x
+        #cx, cy = cx/ scale_w, cy/ scale_h
+        a_x, b_y = a_x*scale_w, b_y*scale_h
+        x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
+        x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
+        frame = cv2.rectangle(instance_img, (   int(x1+(a_x*scale_x)),
+                                                int(y1+(b_y*scale_x))),
+                                                (int(x2+(a_x*scale_x)),
+                                                int(y2+(b_y*scale_x))),
+                                                (0, 255, 0), 1)
+        #cv2.imwrite('1.jpg', frame)
+        return instance_img, w_x, h_x, scale_x, scale_h, scale_w
+
+    def crop_and_pad(self, img, cx, cy, gt_w, gt_h, a_x, b_y, model_sz, original_sz, img_mean=None):
+
+        random = np.random.uniform(-0.25, 0.25)
+        scale_h = 1.0 + random
+        scale_w = 1.0 - random
+
+        im_h, im_w, _ = img.shape
+
+        xmin = (cx-a_x) - ((original_sz - 1) / 2)* scale_w
+        xmax = (cx-a_x) + ((original_sz - 1) / 2)* scale_w
+
+        ymin = (cy-b_y) - ((original_sz - 1) / 2)* scale_h
+        ymax = (cy-b_y) + ((original_sz - 1) / 2)* scale_h
+
+        #print('xmin, xmax, ymin, ymax', xmin, xmax, ymin, ymax)
+
+        left   = int(self.round_up(max(0., -xmin)))
+        top    = int(self.round_up(max(0., -ymin)))
+        right  = int(self.round_up(max(0., xmax - im_w + 1)))
+        bottom = int(self.round_up(max(0., ymax - im_h + 1)))
+
+        xmin = int(self.round_up(xmin + left))
+        xmax = int(self.round_up(xmax + left))
+        ymin = int(self.round_up(ymin + top))
+        ymax = int(self.round_up(ymax + top))
+
+        r, c, k = img.shape
+        if any([top, bottom, left, right]):
+            te_im_ = np.zeros((int((r + top + bottom)), int((c + left + right)), k), np.uint8)  # 0 is better than 1 initialization
+            te_im = np.zeros((int((r + top + bottom)), int((c + left + right)), k), np.uint8)  # 0 is better than 1 initialization
+
+            #cv2.imwrite('te_im1.jpg', te_im)
+            te_im[:, :, :] = img_mean
+            #cv2.imwrite('te_im2_1.jpg', te_im)
+            te_im[top:top + r, left:left + c, :] = img
+            #cv2.imwrite('te_im2.jpg', te_im)
+
+            if top:
+                te_im[0:top, left:left + c, :] = img_mean
+            if bottom:
+                te_im[r + top:, left:left + c, :] = img_mean
+            if left:
+                te_im[:, 0:left, :] = img_mean
+            if right:
+                te_im[:, c + left:, :] = img_mean
+
+            im_patch_original = te_im[int(ymin):int(ymax + 1), int(xmin):int(xmax + 1), :]
+
+            #cv2.imwrite('te_im3.jpg',   im_patch_original)
+
+        else:
+            im_patch_original = img[int(ymin):int((ymax) + 1), int(xmin):int((xmax) + 1), :]
+
+            #cv2.imwrite('te_im4.jpg', im_patch_original)
+
+        if not np.array_equal(model_sz, original_sz):
+
+            h, w, _ = im_patch_original.shape
+
+
+            if h < w:
+                scale_h_ = 1
+                scale_w_ = h/w
+                scale = 271/h
+            elif h > w:
+                scale_h_ = w/h
+                scale_w_ = 1
+                scale = 271/w
+            elif h == w:
+                scale_h_ = 1
+                scale_w_ = 1
+                scale = 271/w
+
+            gt_w = gt_w * scale_w_
+            gt_h = gt_h * scale_h_
+
+            gt_w = gt_w * scale
+            gt_h = gt_h * scale
+
+            #im_patch = cv2.resize(im_patch_original_, (shape))  # zzp: use cv to get a better speed
+            #cv2.imwrite('te_im8.jpg', im_patch)
+
+            im_patch = cv2.resize(im_patch_original, (model_sz, model_sz))  # zzp: use cv to get a better speed
+            #cv2.imwrite('te_im9.jpg', im_patch)
+
+
+        else:
+            im_patch = im_patch_original
+        #scale = model_sz / im_patch_original.shape[0]
+        return im_patch, gt_w, gt_h, scale, scale_h_, scale_w_
+
+
+
+
+    def crop_and_pad_old(self, img, cx, cy, model_sz, original_sz, img_mean=None):
         im_h, im_w, _ = img.shape
 
         xmin = cx - (original_sz - 1) / 2
@@ -253,6 +355,7 @@ class TrainDataLoader(Dataset):
         pos_index = np.where(iou > config.pos_threshold)[0]
         neg_index = np.where(iou < config.neg_threshold)[0]
         label = np.ones_like(iou) * -1
+
         label[pos_index] = 1
         label[neg_index] = 0
         #max_index = np.argsort(iou.flatten())[-20:]
@@ -282,31 +385,6 @@ class TrainDataLoader(Dataset):
             box = np.array(box)[None, :]
         else:
             box = np.array(box)
-        gt_box = np.tile(box.reshape(1, -1), (anchors.shape[0], 1))
-
-        anchor_x1 = anchors[:, :1] - anchors[:, 2:3] / 2 + 0.5
-        anchor_x2 = anchors[:, :1] + anchors[:, 2:3] / 2 - 0.5
-        anchor_y1 = anchors[:, 1:2] - anchors[:, 3:] / 2 + 0.5
-        anchor_y2 = anchors[:, 1:2] + anchors[:, 3:] / 2 - 0.5
-
-        gt_x1 = gt_box[:, :1] - gt_box[:, 2:3] / 2 + 0.5
-        gt_x2 = gt_box[:, :1] + gt_box[:, 2:3] / 2 - 0.5
-        gt_y1 = gt_box[:, 1:2] - gt_box[:, 3:] / 2 + 0.5
-        gt_y2 = gt_box[:, 1:2] + gt_box[:, 3:] / 2 - 0.5
-
-        xx1 = np.max([anchor_x1, gt_x1], axis=0)
-        xx2 = np.min([anchor_x2, gt_x2], axis=0)
-        yy1 = np.max([anchor_y1, gt_y1], axis=0)
-        yy2 = np.min([anchor_y2, gt_y2], axis=0)
-
-        inter_area = np.max([xx2 - xx1, np.zeros(xx1.shape)], axis=0) * np.max([yy2 - yy1, np.zeros(xx1.shape)],
-                                                                               axis=0)
-        area_anchor = (anchor_x2 - anchor_x1) * (anchor_y2 - anchor_y1)
-        area_gt = (gt_x2 - gt_x1) * (gt_y2 - gt_y1)
-        iou = inter_area / (area_anchor + area_gt - inter_area + 1e-6)
-        return iou
-
-    def compute_iou_old(self, anchors, box):
         gt_box = np.tile(box.reshape(1, -1), (anchors.shape[0], 1))
 
         anchor_x1 = anchors[:, :1] - anchors[:, 2:3] / 2 + 0.5
