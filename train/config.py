@@ -6,7 +6,7 @@ class Config(object):
     template_img_size  = 127
     detection_img_size = 271
     epoches = 200
-    train_epoch_size = 10000
+    train_epoch_size = 1000
     val_epoch_size = 100
 
     start_lr = 3e-4
@@ -31,7 +31,7 @@ class Config(object):
     out_feature = 19
     max_inter   = 80
     fix_former_3_layers = True
-    pretrained_model = '/Users/arbi/Desktop/alexnet.pth' #'/home/arbi/desktop/alexnet.pth' #'/home/arbi/Загрузки/alexnet.pth'
+    pretrained_model = '/home/arbi/desktop/alexnet.pth' #'/home/arbi/Загрузки/alexnet.pth' # '/Users/arbi/Desktop/alexnet.pth'
 
     total_stride = 8
     anchor_total_stride = total_stride

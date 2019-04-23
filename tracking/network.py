@@ -8,7 +8,7 @@ from torchvision.models import alexnet
 from torch.autograd import Variable
 from torch import nn
 
-from IPython import embed
+
 from config import config
 
 

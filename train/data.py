@@ -90,12 +90,12 @@ class TrainDataLoader(Dataset):
         detection_img = Image.open(self.ret['detection_img_path'])
         detection_img = np.array(detection_img)
 
-        '''if np.random.rand(1) < config.gray_ratio:
+        if np.random.rand(1) < config.gray_ratio:
 
             template_img = cv2.cvtColor(template_img, cv2.COLOR_RGB2GRAY)
             template_img = cv2.cvtColor(template_img, cv2.COLOR_GRAY2RGB)
             detection_img = cv2.cvtColor(detection_img, cv2.COLOR_RGB2GRAY)
-            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_GRAY2RGB)'''
+            detection_img = cv2.cvtColor(detection_img, cv2.COLOR_GRAY2RGB)
 
         img_mean = np.mean(template_img, axis=(0, 1))
         #img_mean = tuple(map(int, template_img.mean(axis=(0, 1))))
@@ -119,20 +119,20 @@ class TrainDataLoader(Dataset):
         d = self.ret['detection_target_xywh']
         cx, cy, w, h = d  # float type
 
-        wc_z = w + 0.5 * (w + h)
-        hc_z = h + 0.5 * (w + h)
+        wc_z = w + 1 * (w + h)
+        hc_z = h + 1 * (w + h)
         s_z = np.sqrt(wc_z * hc_z)
 
         s_x = s_z / (config.detection_img_size//2)
         img_mean_d = tuple(map(int, detection_img.mean(axis=(0, 1))))
 
-        a_x_ = np.random.choice(range(-64,64))
+        a_x_ = np.random.choice(range(-12,12))
         a_x = a_x_ * s_x
 
-        b_y_ = np.random.choice(range(-64,64))
+        b_y_ = np.random.choice(range(-12,12))
         b_y = b_y_ * s_x
 
-        instance_img, w_x, h_x, scale_x, scale_h, scale_w = self.get_instance_image(  detection_img, d,
+        instance_img, a_x, b_y, w_x, h_x, scale_x = self.get_instance_image(  detection_img, d,
                                                                     config.template_img_size, # 127
                                                                     config.detection_img_size,# 255
                                                                     config.context,           # 0.5
@@ -194,17 +194,17 @@ class TrainDataLoader(Dataset):
         a_x, b_y = a_x*scale_w, b_y*scale_h
         x1, y1 = int((size_x + 1) / 2 - w_x / 2), int((size_x + 1) / 2 - h_x / 2)
         x2, y2 = int((size_x + 1) / 2 + w_x / 2), int((size_x + 1) / 2 + h_x / 2)
-        frame = cv2.rectangle(instance_img, (   int(x1+(a_x*scale_x)),
+        '''frame = cv2.rectangle(instance_img, (   int(x1+(a_x*scale_x)),
                                                 int(y1+(b_y*scale_x))),
                                                 (int(x2+(a_x*scale_x)),
                                                 int(y2+(b_y*scale_x))),
-                                                (0, 255, 0), 1)
+                                                (0, 255, 0), 1)'''
         #cv2.imwrite('1.jpg', frame)
-        return instance_img, w_x, h_x, scale_x, scale_h, scale_w
+        return instance_img, a_x, b_y, w_x, h_x, scale_x
 
     def crop_and_pad(self, img, cx, cy, gt_w, gt_h, a_x, b_y, model_sz, original_sz, img_mean=None):
 
-        random = np.random.uniform(-0.25, 0.25)
+        random = np.random.uniform(-0.15, 0.15)
         scale_h = 1.0 + random
         scale_w = 1.0 - random
 

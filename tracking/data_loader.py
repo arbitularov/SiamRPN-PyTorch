@@ -12,8 +12,8 @@ class TrackerDataLoader(object):
     def get_instance_image(self, img, bbox, size_z, size_x, context_amount, img_mean=None):
 
         cx, cy, w, h = bbox  # float type
-        wc_z = w + context_amount * (w + h)
-        hc_z = h + context_amount * (w + h)
+        wc_z = w + 0.5 * (w + h)
+        hc_z = h + 0.5 * (w + h)
         s_z = np.sqrt(wc_z * hc_z)  # the width of the crop box
         scale_z = size_z / s_z
 
