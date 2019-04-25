@@ -31,7 +31,7 @@ class Config(object):
     out_feature = 19
     max_inter   = 80
     fix_former_3_layers = True
-    pretrained_model = '/home/arbi/Загрузки/alexnet.pth' # '/Users/arbi/Desktop/alexnet.pth' # '/home/arbi/desktop/alexnet.pth'
+    pretrained_model = '/Users/arbi/Desktop/alexnet.pth' # '/home/arbi/desktop/alexnet.pth' # '/home/arbi/Загрузки/alexnet.pth'
 
     total_stride = 8
     anchor_total_stride = total_stride

@@ -33,12 +33,6 @@ class TrainDataLoader(Dataset):
                                                     config.anchor_ratios,
                                                     config.score_size)
 
-    def get_transform_for_train(self):
-        transform_list = []
-        transform_list.append(transforms.ToTensor())
-        transform_list.append(transforms.Normalize(mean=(0.5,0.5,0.5), std=(0.5,0.5,0.5)))
-        return transforms.Compose(transform_list)
-
 
     def _pick_img_pairs(self, index_of_subclass):
 
@@ -352,12 +346,19 @@ class TrainDataLoader(Dataset):
 
         iou = self.compute_iou(anchors, box).flatten()
         #print(np.max(iou))
-        pos_index = np.where(iou > config.pos_threshold)[0]
-        neg_index = np.where(iou < config.neg_threshold)[0]
+        pos_index = np.where(iou == np.max(iou))[0]
+        #pos_index = np.where(iou > config.pos_threshold)[0]
+        neg_index = np.where(iou < np.max(iou))[0]#config.neg_threshold)[0]
         label = np.ones_like(iou) * -1
 
         label[pos_index] = 1
-        label[neg_index] = 0
+
+        for i, neg_ind in enumerate(neg_index):
+            if i % 40 == 0:
+                label[neg_ind] = 0
+
+
+
         #max_index = np.argsort(iou.flatten())[-20:]
 
         return regression_target, label
