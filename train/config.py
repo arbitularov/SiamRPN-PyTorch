@@ -5,7 +5,7 @@ class Config(object):
     '''config for train_siamrpn.py'''
     template_img_size  = 127
     detection_img_size = 271
-    epoches = 200
+    epoches = 10
     train_epoch_size = 1000
     val_epoch_size = 100
 
@@ -31,7 +31,7 @@ class Config(object):
     out_feature = 19
     max_inter   = 80
     fix_former_3_layers = True
-    pretrained_model = '/home/arbi/desktop/alexnet.pth' #'/home/arbi/Загрузки/alexnet.pth' # '/Users/arbi/Desktop/alexnet.pth'
+    pretrained_model = '/home/arbi/Загрузки/alexnet.pth' # '/Users/arbi/Desktop/alexnet.pth' # '/home/arbi/desktop/alexnet.pth'
 
     total_stride = 8
     anchor_total_stride = total_stride
@@ -56,7 +56,7 @@ class Config(object):
 
     '''config for net.py'''
     num_pos = 16
-    num_neg = 64
+    num_neg = 48
     lamb    = 5
 
     ohem_pos = False

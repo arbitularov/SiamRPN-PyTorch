@@ -19,12 +19,12 @@ from torchvision import datasets, transforms, utils
 from custom_transforms import Normalize, ToTensor, RandomStretch, \
     RandomCrop, CenterCrop, RandomBlur, ColorAug
 
-torch.manual_seed(1234) # config.seed
+#torch.manual_seed(1234) # config.seed
 
 
 parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Training')
 
-parser.add_argument('--train_path', default='/home/arbi/desktop/ILSVRC', metavar='DIR',help='path to dataset')
+parser.add_argument('--train_path', default='/home/arbi/desktop/GOT-10k', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
 parser.add_argument('--checkpoint_path', default=None, help='resume')
 # /home/arbi/desktop/GOT-10k # /Users/arbi/Desktop # /home/a/home/arbi/desktop/ILSVRCrbi/desktop/ILSVRC
@@ -39,11 +39,11 @@ def main():
     model = TrackerSiamRPN()
 
     '''setup train data loader'''
-    name = 'VID'
+    name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path
-        seq_dataset = GOT10k(root_dir, subset='val')
+        seq_dataset = GOT10k(root_dir, subset='train')
     elif name == 'VID':
         root_dir = '/home/arbi/desktop/ILSVRC'
         seq_dataset = ImageNetVID(root_dir, subset=('train'))
@@ -71,7 +71,7 @@ def main():
                                 pin_memory = True)
 
     '''setup val data loader'''
-    name = 'VID'
+    name = 'GOT-10k'
     assert name in ['VID', 'GOT-10k', 'All']
     if name == 'GOT-10k':
         root_dir = args.train_path

@@ -119,8 +119,8 @@ class TrainDataLoader(Dataset):
         d = self.ret['detection_target_xywh']
         cx, cy, w, h = d  # float type
 
-        wc_z = w + 1 * (w + h)
-        hc_z = h + 1 * (w + h)
+        wc_z = w + 0.5 * (w + h)
+        hc_z = h + 0.5 * (w + h)
         s_z = np.sqrt(wc_z * hc_z)
 
         s_x = s_z / (config.detection_img_size//2)
@@ -204,9 +204,9 @@ class TrainDataLoader(Dataset):
 
     def crop_and_pad(self, img, cx, cy, gt_w, gt_h, a_x, b_y, model_sz, original_sz, img_mean=None):
 
-        random = np.random.uniform(-0.15, 0.15)
-        scale_h = 1.0 + random
-        scale_w = 1.0 - random
+        #random = np.random.uniform(-0.15, 0.15)
+        scale_h = 1.0 + np.random.uniform(-0.15, 0.15)
+        scale_w = 1.0 + np.random.uniform(-0.15, 0.15)
 
         im_h, im_w, _ = img.shape
 
@@ -418,7 +418,7 @@ class TrainDataLoader(Dataset):
         index = random.choice(range(len(self.sub_class_dir)))
         if self.name == 'GOT-10k':
             if index == 8627 or index == 8629 or index == 9057 or index == 9058:
-                index += 1
+                index += 3
 
         self._pick_img_pairs(index)
         self.open()
