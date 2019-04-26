@@ -62,7 +62,13 @@ class TrainDataLoader(Dataset):
             if template_gt[2]*template_gt[3]*detection_gt[2]*detection_gt[3] != 0:
                 status = False
             else:
-                print('Warning : Encounter object missing, reinitializing ...')
+                #print('Warning : Encounter object missing, reinitializing ...')
+                print(  'index_of_subclass:', index_of_subclass, '\n',
+                        'template_index:', template_index, '\n',
+                        'template_gt:', template_gt, '\n',
+                        'detection_index:', detection_index, '\n',
+                        'detection_gt:', detection_gt, '\n')
+
 
         # load infomation of template and detection
         self.ret['template_img_path']      = template_img_path
