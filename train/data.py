@@ -445,9 +445,8 @@ class TrainDataLoader(Dataset):
             index = random.choice(range(len(self.sub_class_dir)))'''
 
         if self.name == 'GOT-10k':
-            if index == 8627 or index == 8629 or index == 9057 or index == 9058:
+            if index == 4418 or index == 8627 or index == 8629 or index == 9057 or index == 9058:
                 index += 3
-
         self._pick_img_pairs(index)
         self.open()
         self._tranform()

@@ -182,7 +182,7 @@ def main():
                 val_tlosses.update(val_tloss.cpu().item())
 
                 progbar.set_postfix(closs='{:05.3f}'.format(val_closses.avg),
-                                    rloss='{:05.3f}'.format(val_rlosses.avg),
+                                    rloss='{:05.5f}'.format(val_rlosses.avg),
                                     tloss='{:05.3f}'.format(val_tlosses.avg))
 
                 progbar.update()
