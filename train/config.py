@@ -6,7 +6,7 @@ class Config(object):
     template_img_size  = 127
     detection_img_size = 271
     epoches = 200
-    train_epoch_size = 1000
+    train_epoch_size = 5000
     val_epoch_size = 100
 
     train_batch_size = 32                  # training batch size
@@ -14,12 +14,13 @@ class Config(object):
     train_num_workers = 16                  # number of workers of train dataloader
     valid_num_workers = 16
 
-    start_lr = 3e-4
+    start_lr = 3e-2
     end_lr = 1e-5
     warm_lr = 1e-3
     warm_scale = warm_lr/start_lr
-    epoch = 50
-    lr = np.logspace(np.log10(start_lr), np.log10(end_lr), num=epoch)[0]
+    lr = np.logspace(np.log10(start_lr), np.log10(end_lr), num=epoches)[0]
+    gamma = np.logspace(np.log10(start_lr), np.log10(end_lr), num=epoches)[1] / \
+            np.logspace(np.log10(start_lr), np.log10(end_lr), num=epoches)[0]
     momentum = 0.9
     weight_decay = 0.0005
 

@@ -113,6 +113,8 @@ class TrackerSiamRPN(Tracker):
 
     '''save model'''
     def save(self,model, exp_name_dir, epoch):
+        util.adjust_learning_rate(self.optimizer, config.gamma)
+
         model_save_dir_pth = '{}/model'.format(exp_name_dir)
         if not os.path.exists(model_save_dir_pth):
                 os.makedirs(model_save_dir_pth)
