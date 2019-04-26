@@ -26,7 +26,7 @@ class TrackerSiamRPN(Tracker):
 
         '''setup model'''
         self.net = SiameseAlexNet()
-        self.net.init_weights()
+        #self.net.init_weights()
 
         if net_path is not None:
             self.net.load_state_dict(torch.load(

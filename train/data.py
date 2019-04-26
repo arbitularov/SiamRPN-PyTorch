@@ -266,15 +266,15 @@ class TrainDataLoader(Dataset):
             if h < w:
                 scale_h_ = 1
                 scale_w_ = h/w
-                scale = 271/h
+                scale = config.detection_img_size/h
             elif h > w:
                 scale_h_ = w/h
                 scale_w_ = 1
-                scale = 271/w
+                scale = config.detection_img_size/w
             elif h == w:
                 scale_h_ = 1
                 scale_w_ = 1
-                scale = 271/w
+                scale = config.detection_img_size/w
 
             gt_w = gt_w * scale_w_
             gt_h = gt_h * scale_h_

@@ -9,6 +9,11 @@ class Config(object):
     train_epoch_size = 1000
     val_epoch_size = 100
 
+    train_batch_size = 32                  # training batch size
+    valid_batch_size = 8                   # validation batch size
+    train_num_workers = 16                  # number of workers of train dataloader
+    valid_num_workers = 16
+
     start_lr = 3e-4
     end_lr = 1e-5
     warm_lr = 1e-3

@@ -65,9 +65,9 @@ def main():
     train_data  = TrainDataLoader(seq_dataset, train_z_transforms, train_x_transforms, name)
     anchors = train_data.anchors
     train_loader = DataLoader(  dataset    = train_data,
-                                batch_size = 64,
+                                batch_size = config.train_batch_size,
                                 shuffle    = True,
-                                num_workers= 16,
+                                num_workers= config.train_num_workers,
                                 pin_memory = True)
 
     '''setup val data loader'''
@@ -96,9 +96,9 @@ def main():
 
     val_data  = TrainDataLoader(seq_dataset_val, valid_z_transforms, valid_x_transforms, name)
     val_loader = DataLoader(    dataset    = val_data,
-                                batch_size = 8,
+                                batch_size = config.valid_batch_size,
                                 shuffle    = False,
-                                num_workers= 16,
+                                num_workers= config.valid_num_workers,
                                 pin_memory = True)
 
     '''load weights'''
@@ -120,7 +120,7 @@ def main():
         model_dict = model.net.state_dict()
         model_dict.update(checkpoint)
         model.net.load_state_dict(model_dict)
-        torch.cuda.empty_cache()
+        #torch.cuda.empty_cache()
 
     '''train phase'''
     train_closses, train_rlosses, train_tlosses = AverageMeter(), AverageMeter(), AverageMeter()
