@@ -125,20 +125,22 @@ class TrackerSiamRPNBIG(Tracker):
             bbox: one-based bounding box [x, y, width, height]
         """
         frame = np.asarray(frame)
-        bbox[0] = bbox[0] + bbox[2]/2
-        bbox[1] = bbox[1] + bbox[3]/2
+        '''bbox[0] = bbox[0] + bbox[2]/2
+        bbox[1] = bbox[1] + bbox[3]/2'''
 
         self.pos = np.array([bbox[0] + bbox[2] / 2 - 1 / 2, bbox[1] + bbox[3] / 2 - 1 / 2])  # center x, center y, zero based
+        #self.pos = np.array([bbox[0], bbox[1]])  # center x, center y, zero based
 
         self.target_sz = np.array([bbox[2], bbox[3]])  # width, height
         self.bbox = np.array([bbox[0] + bbox[2] / 2 - 1 / 2, bbox[1] + bbox[3] / 2 - 1 / 2, bbox[2], bbox[3]])
+        #self.bbox = np.array([bbox[0], bbox[1], bbox[2], bbox[3]])
 
         self.origin_target_sz = np.array([bbox[2], bbox[3]])
         # get exemplar img
         self.img_mean = np.mean(frame, axis=(0, 1))
 
         exemplar_img, _, _ = self.data_loader.get_exemplar_image(   frame,
-                                                                    bbox,
+                                                                    self.bbox,
                                                                     config.template_img_size,
                                                                     config.context_amount,
                                                                     self.img_mean)

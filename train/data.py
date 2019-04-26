@@ -26,6 +26,7 @@ class TrainDataLoader(Dataset):
         self.sub_class_dir = seq_dataset
         self.ret           = {}
         self.count         = 0
+        self.index         = 3000
         self.name          = name
         self.anchors       = util.generate_anchors( config.anchor_total_stride,
                                                     config.anchor_base_size,
@@ -346,16 +347,16 @@ class TrainDataLoader(Dataset):
 
         iou = self.compute_iou(anchors, box).flatten()
         #print(np.max(iou))
-        pos_index = np.where(iou == np.max(iou))[0]
-        #pos_index = np.where(iou > config.pos_threshold)[0]
-        neg_index = np.where(iou < np.max(iou))[0]#config.neg_threshold)[0]
+        pos_index = np.where(iou > config.pos_threshold)[0]
+        neg_index = np.where(iou < config.neg_threshold)[0]
         label = np.ones_like(iou) * -1
 
         label[pos_index] = 1
-
+        label[neg_index] = 0
+        '''print(len(neg_index))
         for i, neg_ind in enumerate(neg_index):
             if i % 40 == 0:
-                label[neg_ind] = 0
+                label[neg_ind] = 0'''
 
 
 
@@ -417,6 +418,26 @@ class TrainDataLoader(Dataset):
 
     def __getitem__(self, index):
         index = random.choice(range(len(self.sub_class_dir)))
+        '''if len(self.sub_class_dir) > 180:
+            index = self.index
+            self.index += 1
+
+            if self.index >= 8000:
+                self.index = 3000
+
+            index = random.choice(range(3000, 8000))
+
+            if index in self.index:
+                index = random.choice(range(3000, 8000))
+                print("index in self.index")
+
+            if not index in self.index:
+                self.index.append(index)
+            if len(self.index) >= 3000:
+                self.index = []
+        else:
+            index = random.choice(range(len(self.sub_class_dir)))'''
+
         if self.name == 'GOT-10k':
             if index == 8627 or index == 8629 or index == 9057 or index == 9058:
                 index += 3

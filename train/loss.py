@@ -40,6 +40,7 @@ def rpn_cross_entropy_balance(input, target, num_pos, num_neg, anchors, ohem_pos
     for batch_id in range(target.shape[0]):
         min_pos = min(len(np.where(target[batch_id].cpu() == 1)[0]), num_pos)
         min_neg = int(min(len(np.where(target[batch_id].cpu() == 1)[0]) * num_neg / num_pos, num_neg))
+
         pos_index = np.where(target[batch_id].cpu() == 1)[0].tolist()
         neg_index = np.where(target[batch_id].cpu() == 0)[0].tolist()
 
@@ -80,6 +81,7 @@ def rpn_cross_entropy_balance(input, target, num_pos, num_neg, anchors, ohem_pos
         else:
             if len(pos_index) > 0:
                 neg_index_random = random.sample(np.where(target[batch_id].cpu() == 0)[0].tolist(), min_neg)
+                #neg_index_random = np.where(target[batch_id].cpu() == 0)[0].tolist()
                 neg_loss_bid_final = F.cross_entropy(input=input[batch_id][neg_index_random],
                                                      target=target[batch_id][neg_index_random], reduction='none')
             else:

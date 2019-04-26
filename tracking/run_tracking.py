@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser(description='PyTorch SiameseRPN Tracking')
 
 parser.add_argument('--tracker_path', default='/home/arbi/desktop/data', metavar='DIR',help='path to dataset')
 parser.add_argument('--experiment_name', default='default', metavar='DIR',help='path to weight')
-parser.add_argument('--net_path', default='../train/experiments/default/model/model_e10.pth', metavar='DIR',help='path to weight')
+parser.add_argument('--net_path', default='../train/experiments/default/model/model_e41.pth', metavar='DIR',help='path to weight')
 # ../train/experiments/default/model/model_e1.pth # ../model.pth #../siamrpn_7.pth
 # /Users/arbi/Desktop # /home/arbi/desktop/GOT-10k
 # /media/arbi/9132EE0B9756C987/dataset/GOT-10k/full_data
@@ -55,8 +55,8 @@ if __name__ == '__main__':
 
     '''
     experiments = ExperimentOTB('/home/arbi/desktop/data', version=2015,
-                    result_dir='experiments/{}/OTB2015resultsVID_GOT-10k'.format(args.experiment_name),
-                    report_dir='experiments/{}/OTB2015reportsVID_GOT-10k'.format(args.experiment_name))
+                    result_dir='experiments/{}/OTB2015resultsGOT-10k_41'.format(args.experiment_name),
+                    report_dir='experiments/{}/OTB2015reportsGOT-10k_41'.format(args.experiment_name))
 
 
     '''run experiments'''
