@@ -6,15 +6,15 @@ class Config(object):
     template_img_size  = 127
     detection_img_size = 271
     epoches = 200
-    train_epoch_size = 5000
-    val_epoch_size = 100
+    train_epoch_size = 30000
+    val_epoch_size = 1000
 
     train_batch_size = 32                  # training batch size
     valid_batch_size = 8                   # validation batch size
     train_num_workers = 16                  # number of workers of train dataloader
     valid_num_workers = 16
 
-    start_lr = 3e-2
+    start_lr = 3e-3
     end_lr = 1e-5
     warm_lr = 1e-3
     warm_scale = warm_lr/start_lr
@@ -24,7 +24,7 @@ class Config(object):
     momentum = 0.9
     weight_decay = 0.0005
 
-    clip = 10 # grad clip
+    clip = 100 # grad clip
 
     anchor_scales = np.array([8, ])
     anchor_ratios = np.array([0.33, 0.5, 1, 2, 3])
