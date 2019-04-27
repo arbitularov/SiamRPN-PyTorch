@@ -106,9 +106,6 @@ class TrackerSiamRPN(Tracker):
             torch.nn.utils.clip_grad_norm_(self.net.parameters(), config.clip)
             self.optimizer.step()
 
-            if i >= config.train_epoch_size - 1:
-                util.adjust_learning_rate(self.optimizer, 1 / config.warm_scale)
-
         return cls_loss, reg_loss, loss
 
     '''save model'''
