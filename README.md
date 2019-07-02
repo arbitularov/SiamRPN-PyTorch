@@ -1,3 +1,5 @@
+# I got on OTB2015 result 8.41 and 0.625 without RPN. In the [SiamFusion project](https://github.com/arbitularov/SiamFusion)
+![result](https://github.com/arbitularov/SiamFusion/blob/master/img/results_for_31.jpg)
 # SiamRPN-PyTorch
 Implementation SiamRPN on PyTorch with GOT-10k dataset  
 
